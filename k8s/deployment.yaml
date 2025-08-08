@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vikareta-admin
+  namespace: vikareta
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vikareta-admin
+  template:
+    metadata:
+      labels:
+        app: vikareta-admin
+    spec:
+      containers:
+      - name: vikareta-admin
+        image: ghcr.io/aryannkumar/vikareta-admin:main
+        ports:
+        - containerPort: 3002
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

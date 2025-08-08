@@ -1,0 +1,22 @@
+{
+  "name": "vikareta-admin",
+  "version": "1.0.0",
+  "description": "Vikareta Admin Panel",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/react": "^18.2.20",
+    "typescript": "^5.1.6"
+  }
+}

@@ -1,2 +1,2 @@
-# vikareta-admin
-Vikareta Admin Panel - React Admin Interface
+# vikareta-web
+Vikareta Web Frontend - React/Next.js Application
