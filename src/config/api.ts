@@ -2,13 +2,13 @@
 export const API_CONFIG = {
     // Primary API URLs (in order of preference)
     apiUrls: [
-        process.env.NEXT_PUBLIC_API_URL_PRIMARY || 'http://localhost:5001/api',
+        process.env.NEXT_PUBLIC_API_URL_PRIMARY || 'http://api.vikareta.com/api',
         process.env.NEXT_PUBLIC_API_URL_SECONDARY || 'https://api.vikareta.com/api',
     ].filter(Boolean),
 
     // WebSocket URLs
     wsUrls: [
-        process.env.NEXT_PUBLIC_WS_URL_PRIMARY || 'ws://localhost:5001',
+        process.env.NEXT_PUBLIC_WS_URL_PRIMARY || 'ws://api.vikareta.com',
         process.env.NEXT_PUBLIC_WS_URL_SECONDARY || 'wss://api.vikareta.com',
     ].filter(Boolean),
 
