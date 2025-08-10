@@ -5,6 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment'
+        required: false
+        default: 'false'
 
 env:
   REGISTRY: ghcr.io
@@ -21,6 +27,30 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Generate version
+      id: version
+      run: |
+        # Generate a unique version based on timestamp and commit
+        TIMESTAMP=$(date +%Y%m%d%H%M%S)
+        SHORT_SHA=${GITHUB_SHA::7}
+        BRANCH_NAME=${GITHUB_REF#refs/heads/}
+        
+        if [ "$BRANCH_NAME" = "main" ]; then
+          VERSION="v${TIMESTAMP}-${SHORT_SHA}"
+          LATEST_TAG="latest"
+        else
+          VERSION="${BRANCH_NAME}-${TIMESTAMP}-${SHORT_SHA}"
+          LATEST_TAG="${BRANCH_NAME}-latest"
+        fi
+        
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+        echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+        echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+        
+        echo "Generated version: ${VERSION}"
+        echo "Latest tag: ${LATEST_TAG}"
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
@@ -31,31 +61,52 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.latest_tag }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}
+        labels: |
+          org.opencontainers.image.title=Vikareta Admin
+          org.opencontainers.image.description=Vikareta Admin Dashboard
+          org.opencontainers.image.version=${{ steps.version.outputs.version }}
+          org.opencontainers.image.revision=${{ github.sha }}
         no-cache: true
         platforms: linux/amd64,linux/arm64
 
-    - name: Trigger ArgoCD Sync for Centralized Platform
+    - name: Update ArgoCD Application Image
       if: github.ref == 'refs/heads/main'
       run: |
-        echo "🚀 Triggering centralized platform sync after admin image update..."
+        echo "🚀 Updating ArgoCD application with new image tag..."
+        
+        # Update the image tag in ArgoCD
+        curl -X PATCH \
+          -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "spec": {
+              "source": {
+                "helm": {
+                  "parameters": [
+                    {
+                      "name": "image.tag",
+                      "value": "${{ steps.version.outputs.version }}"
+                    }
+                  ]
+                }
+              }
+            }
+          }' \
+          "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/vikareta-admin" || echo "Failed to update image tag"
+
+    - name: Trigger ArgoCD Sync
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "🔄 Triggering ArgoCD sync for vikareta-admin..."
         
         curl -X POST \
           -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
@@ -70,39 +121,80 @@ jobs:
               }
             }
           }' \
-          "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/vikareta-platform/sync"
+          "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/vikareta-admin/sync"
 
     - name: Wait for deployment
+      id: wait-deployment
       if: github.ref == 'refs/heads/main'
       run: |
-        echo "Waiting for ArgoCD to sync the centralized platform..."
+        echo "⏳ Waiting for ArgoCD to sync vikareta-admin..."
         sleep 30
         
         # Check application health
-        for i in {1..10}; do
-          STATUS=$(curl -s -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
-            "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/vikareta-platform" | \
-            jq -r '.status.health.status // "Unknown"')
+        for i in {1..15}; do
+          echo "Checking application health... (attempt $i/15)"
           
-          echo "Platform health status: $STATUS"
+          RESPONSE=$(curl -s -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
+            "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/vikareta-admin")
           
-          if [ "$STATUS" = "Healthy" ]; then
-            echo "✅ Admin service deployed successfully via centralized platform!"
-            exit 0
+          HTTP_CODE="${RESPONSE: -3}"
+          JSON_RESPONSE="${RESPONSE%???}"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ API request failed with HTTP code: $HTTP_CODE"
+            sleep 20
+            continue
           fi
           
-          echo "Waiting for platform to become healthy... (attempt $i/10)"
-          sleep 30
+          if echo "$JSON_RESPONSE" | jq empty 2>/dev/null; then
+            HEALTH_STATUS=$(echo "$JSON_RESPONSE" | jq -r '.status.health.status // "Unknown"')
+            SYNC_STATUS=$(echo "$JSON_RESPONSE" | jq -r '.status.sync.status // "Unknown"')
+            
+            echo "🔍 Health Status: $HEALTH_STATUS"
+            echo "🔍 Sync Status: $SYNC_STATUS"
+            
+            if [ "$HEALTH_STATUS" = "Healthy" ] && [ "$SYNC_STATUS" = "Synced" ]; then
+              echo "✅ Admin service deployed successfully!"
+              exit 0
+            fi
+          fi
+          
+          echo "⏳ Waiting for application to become healthy and synced..."
+          sleep 20
         done
         
-        echo "⚠️ Platform deployment status check timed out"
+        echo "⚠️ Deployment status check timed out"
         exit 1
 
     - name: Deployment notification
       if: always() && github.ref == 'refs/heads/main'
       run: |
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "🎉 vikareta-admin deployed successfully via centralized Helm chart!"
+        if [ "${{ steps.wait-deployment.outcome }}" = "success" ]; then
+          echo "🎉 vikareta-admin:${{ steps.version.outputs.version }} deployed successfully!"
+          echo "📦 Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
         else
           echo "❌ vikareta-admin deployment failed!"
         fi
+
+    - name: Create GitHub Release
+      if: github.ref == 'refs/heads/main' && steps.wait-deployment.outcome == 'success'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: Admin Release ${{ steps.version.outputs.version }}
+        body: |
+          ## Admin Release ${{ steps.version.outputs.version }}
+          
+          **Docker Image:** `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}`
+          
+          **Changes:**
+          - Commit: ${{ github.sha }}
+          - Branch: ${{ steps.version.outputs.branch }}
+          
+          **Deployment:**
+          - ✅ Successfully deployed to production
+          - 🔗 Available at: https://admin.vikareta.com
+        draft: false
+        prerelease: false
