@@ -8,6 +8,6 @@ spec:
     app: vikareta-admin
   ports:
   - protocol: TCP
-    port: 3002
+    port: 5751
     targetPort: 3002
   type: ClusterIP

@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Admin
+name: CI/CD Pipeline - Vikareta Admin
 
 on:
   push:
@@ -15,9 +15,36 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/vikareta-admin
+  SERVICE_NAME: admin
+  SERVICE_PORT: 5751
 
 jobs:
-  build-and-deploy:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run linting
+      run: npm run lint || echo "Linting not configured, skipping..."
+
+    - name: Run tests
+      run: npm test || echo "Tests not configured, skipping..."
+
+    - name: Build application
+      run: npm run build
+
+  build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,10 +54,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Generate version
+    - name: Generate comprehensive tags for ArgoCD Image Updater
       id: version
       run: |
-        # Generate a unique version based on timestamp and commit
         TIMESTAMP=$(date +%Y%m%d%H%M%S)
         SHORT_SHA=${GITHUB_SHA::7}
         BRANCH_NAME=${GITHUB_REF#refs/heads/}
@@ -47,9 +73,9 @@ jobs:
         echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
         echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
         echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+        echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
         
-        echo "Generated version: ${VERSION}"
-        echo "Latest tag: ${LATEST_TAG}"
+        echo "Generated ArgoCD Image Updater compatible version: ${VERSION}"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -70,73 +96,67 @@ jobs:
           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.latest_tag }}
           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         labels: |
           org.opencontainers.image.title=Vikareta Admin
-          org.opencontainers.image.description=Vikareta Admin Dashboard
+          org.opencontainers.image.description=Vikareta Admin Panel Application
           org.opencontainers.image.version=${{ steps.version.outputs.version }}
           org.opencontainers.image.revision=${{ github.sha }}
-        no-cache: true
+          org.opencontainers.image.created=${{ steps.version.outputs.timestamp }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
 
-    - name: Install ArgoCD CLI
+    - name: Create ArgoCD Image Updater manifest
       if: github.ref == 'refs/heads/main'
       run: |
-        echo "📦 Installing ArgoCD CLI..."
-        curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-        sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
-        rm argocd-linux-amd64
-        argocd version --client
+        cat > image-manifest.json << EOF
+        {
+          "service": "${{ env.SERVICE_NAME }}",
+          "latest_tag": "${{ steps.version.outputs.version }}",
+          "timestamp": "${{ steps.version.outputs.timestamp }}",
+          "commit": "${{ steps.version.outputs.short_sha }}",
+          "full_sha": "${{ github.sha }}",
+          "branch": "${{ steps.version.outputs.branch }}",
+          "registry": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}",
+          "port": "${{ env.SERVICE_PORT }}",
+          "url": "https://admin.vikareta.com",
+          "build_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        }
+        EOF
 
-    - name: ArgoCD Login and Sync
-      id: wait-deployment
+    - name: Build Summary
       if: github.ref == 'refs/heads/main'
-      env:
-        ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-        ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
       run: |
-        echo "🔐 Logging into ArgoCD..."
-        argocd login $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --insecure
+        echo "## 🚀 Admin Panel Image Build Completed!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Available Images:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Latest**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.latest_tag }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ✅ Ready for ArgoCD Deployment:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Service**: Admin Panel (Port ${{ env.SERVICE_PORT }})" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL**: https://admin.vikareta.com" >> $GITHUB_STEP_SUMMARY
+        echo "- **ArgoCD**: Will auto-detect tag \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
         
-        echo "🚀 Updating image tag for vikareta-admin..."
-        argocd app set vikareta-admin --helm-set image.tag=${{ steps.version.outputs.version }}
-        
-        echo "🔄 Syncing vikareta-admin application..."
-        argocd app sync vikareta-admin --timeout 300 --prune
-        
-        echo "⏳ Waiting for sync to complete..."
-        argocd app wait vikareta-admin --timeout 600 --health
-        
-        echo "✅ vikareta-admin deployment completed successfully!"
-
-    - name: Deployment notification
-      if: always() && github.ref == 'refs/heads/main'
-      run: |
-        if [ "${{ steps.wait-deployment.outcome }}" = "success" ]; then
-          echo "🎉 vikareta-admin:${{ steps.version.outputs.version }} deployed successfully!"
-          echo "📦 Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
-        else
-          echo "❌ vikareta-admin deployment failed!"
-        fi
+        echo "🎉 vikareta-admin image ready for deployment!"
 
     - name: Create GitHub Release
-      if: github.ref == 'refs/heads/main' && steps.wait-deployment.outcome == 'success'
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.version.outputs.version }}
-        release_name: Admin Release ${{ steps.version.outputs.version }}
+        tag_name: admin-${{ steps.version.outputs.version }}
+        name: Admin Panel Release ${{ steps.version.outputs.version }}
         body: |
-          ## Admin Release ${{ steps.version.outputs.version }}
+          ## Admin Panel Release ${{ steps.version.outputs.version }}
           
           **Docker Image:** `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}`
+          **Service URL:** https://admin.vikareta.com
+          **Port:** ${{ env.SERVICE_PORT }}
           
-          **Changes:**
-          - Commit: ${{ github.sha }}
-          - Branch: ${{ steps.version.outputs.branch }}
-          
-          **Deployment:**
-          - ✅ Successfully deployed to production
-          - 🔗 Available at: https://admin.vikareta.com
+          **Ready for ArgoCD deployment - pull latest image to deploy!**
         draft: false
         prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,56 +1,34 @@
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+# Multi-stage build for Vikareta Admin
+FROM node:22-alpine AS builder
+
 WORKDIR /app
 
-# Set npm configuration for SSL issues
-RUN npm config set strict-ssl false
-RUN npm config set registry https://registry.npmjs.org/
-RUN npm config set fetch-retry-mintimeout 20000
-RUN npm config set fetch-retry-maxtimeout 120000
+# Copy package files
+COPY package*.json ./
 
-# Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm install
+# Install dependencies
+RUN npm ci --only=production
 
-# Rebuild the source code only when needed
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Set npm configuration for SSL issues
-RUN npm config set strict-ssl false
-RUN npm config set registry https://registry.npmjs.org/
-
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
 
 # Build the application
 RUN npm run build
 
-# Production image, copy all the files and run next
-FROM node:20-alpine AS runner
-WORKDIR /app
+# Production stage
+FROM nginx:alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Copy built assets from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-ENV NODE_ENV=production
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy the built application
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
-EXPOSE 3002
-
-ENV PORT=3002
+# Expose port
+EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3002 || exit 1
+  CMD curl -f http://localhost/ || exit 1
 
-CMD ["node", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]
