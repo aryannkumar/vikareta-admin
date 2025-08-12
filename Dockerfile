@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -16,19 +16,34 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:22-alpine AS runner
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy the standalone output
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+# Set correct permissions
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 
 # Expose port
-EXPOSE 80
+EXPOSE 5751
+
+ENV PORT 5751
+ENV HOSTNAME "0.0.0.0"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
+  CMD curl -f http://localhost:5751/health || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
