@@ -232,20 +232,25 @@ class AdminApiClient {
   // Special login method that handles CSRF token in one go
   async loginWithCSRF(email: string, password: string): Promise<AxiosResponse<any>> {
     try {
-      // First, get a fresh CSRF token directly from the correct URL
+      // First, get a fresh CSRF token using axios with proper config
       console.log('Fetching fresh CSRF token for login...');
       const csrfUrl = 'https://api.vikareta.com/csrf-token';
       console.log('CSRF URL:', csrfUrl);
 
       const csrfResponse = await axios.get(csrfUrl, {
         withCredentials: true,
+        maxRedirects: 0, // Don't follow redirects
+        validateStatus: (status) => status < 400, // Accept any status < 400
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          'Origin': window.location.origin,
+          'Referer': window.location.origin,
         },
       });
 
-      console.log('CSRF response:', csrfResponse.data);
+      console.log('CSRF response status:', csrfResponse.status);
+      console.log('CSRF response data:', csrfResponse.data);
 
       // Handle different response structures
       let csrfToken;
@@ -269,11 +274,19 @@ class AdminApiClient {
         password,
       }, {
         withCredentials: true,
+        maxRedirects: 0, // Don't follow redirects
+        validateStatus: (status) => status < 400,
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'X-CSRF-Token': csrfToken,
+          'Origin': window.location.origin,
+          'Referer': window.location.origin,
         },
       });
+
+      console.log('Login response status:', loginResponse.status);
+      console.log('Login response data:', loginResponse.data);
 
       // Store the token for future use
       localStorage.setItem('csrf_token', csrfToken);
@@ -281,6 +294,14 @@ class AdminApiClient {
       return loginResponse;
     } catch (error) {
       console.error('Login with CSRF failed:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        });
+      }
       throw error;
     }
   }
