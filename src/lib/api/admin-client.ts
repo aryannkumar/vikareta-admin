@@ -244,8 +244,6 @@ class AdminApiClient {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Origin': window.location.origin,
-          'Referer': window.location.origin,
         },
       });
 
@@ -280,8 +278,6 @@ class AdminApiClient {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'X-CSRF-Token': csrfToken,
-          'Origin': window.location.origin,
-          'Referer': window.location.origin,
         },
       });
 

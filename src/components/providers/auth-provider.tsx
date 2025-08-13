@@ -83,8 +83,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use the special login method that handles CSRF token properly
       const response = await adminApiClient.loginWithCSRF(email, password);
 
-      const { data } = response.data;
-      const { user: backendUser, tokens } = data;
+      console.log('Auth provider received response:', response.data);
+      
+      // The response structure is: {success: true, data: {user, token, refreshToken}, message}
+      const responseData = response.data.data;
+      const backendUser = responseData.user;
+      const tokens = {
+        accessToken: responseData.token,
+        refreshToken: responseData.refreshToken
+      };
+      
+      console.log('Extracted user:', backendUser);
+      console.log('Extracted tokens:', tokens);
       localStorage.setItem('admin_token', tokens.accessToken);
       localStorage.setItem('admin_refresh_token', tokens.refreshToken);
       // Also set cookie for middleware
@@ -106,10 +116,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isVerified: backendUser.isVerified,
       };
 
+      console.log('Setting admin user:', adminUser);
       setUser(adminUser);
+      console.log('Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+      console.error('Login error in auth provider:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        stack: error.stack
+      });
+      throw new Error(error.response?.data?.message || error.message || 'Login failed');
     }
   };
 
