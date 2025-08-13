@@ -7,7 +7,6 @@ import {
   Plus, 
   Edit, 
   Trash2, 
-  Eye,
   Package,
   ToggleLeft,
   ToggleRight,

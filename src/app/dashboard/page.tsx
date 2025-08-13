@@ -13,7 +13,6 @@ import {
   CheckCircle,
   Eye,
   UserCheck,
-  FileText,
   DollarSign
 } from 'lucide-react';
 import { adminApiClient } from '@/lib/api/admin-client';
