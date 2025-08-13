@@ -6,10 +6,21 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.co
 
 class AdminApiClient {
   private client: AxiosInstance;
+  private csrfClient: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/admin`,
+      timeout: 30000,
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Separate client for CSRF token and auth requests to maintain session
+    this.csrfClient = axios.create({
+      baseURL: API_BASE_URL.replace('/api', ''), // Remove /api for CSRF endpoint
       timeout: 30000,
       withCredentials: true,
       headers: {
@@ -50,45 +61,45 @@ class AdminApiClient {
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
-        
+
         // Handle 403 CSRF token errors
         if (error.response?.status === 403 && !originalRequest._csrfRetry) {
           const errorData = error.response?.data;
           const message = errorData?.error?.message || errorData?.message || '';
-          
+
           if (message.includes('CSRF') || message.includes('csrf')) {
             console.log('CSRF token expired, clearing and retrying...');
             originalRequest._csrfRetry = true;
-            
+
             // Clear old token and get fresh one
             localStorage.removeItem('csrf_token');
             await this.ensureCSRFToken();
-            
+
             const csrfToken = localStorage.getItem('csrf_token');
             if (csrfToken) {
               originalRequest.headers['X-CSRF-Token'] = csrfToken;
             }
-            
+
             return this.client(originalRequest);
           }
         }
-        
+
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
+
           if (typeof window !== 'undefined') {
             const refreshToken = localStorage.getItem('admin_refresh_token');
-            
+
             if (refreshToken) {
               try {
                 // Try to refresh the token
                 const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {
                   refreshToken
                 });
-                
+
                 const { accessToken } = refreshResponse.data.data.tokens;
                 localStorage.setItem('admin_token', accessToken);
-                
+
                 // Retry the original request with new token
                 originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                 return this.client(originalRequest);
@@ -144,6 +155,7 @@ class AdminApiClient {
       await this.ensureCSRFToken();
     }
 
+    // Use the same client that fetched the CSRF token to maintain session
     const authClient = axios.create({
       baseURL: API_BASE_URL,
       timeout: 30000,
@@ -164,9 +176,16 @@ class AdminApiClient {
         const csrfToken = localStorage.getItem('csrf_token');
         if (csrfToken) {
           authClient.defaults.headers['X-CSRF-Token'] = csrfToken;
+          console.log('Adding CSRF token to auth request:', csrfToken.substring(0, 10) + '...');
+        } else {
+          console.warn('No CSRF token available for auth request');
         }
       }
     }
+
+    console.log('Making auth request:', method.toUpperCase(), `${API_BASE_URL}${url}`);
+    console.log('Request headers:', authClient.defaults.headers);
+    console.log('Request data:', data);
 
     if (method === 'get') {
       return authClient.get(url, config);
@@ -180,21 +199,47 @@ class AdminApiClient {
       const existingToken = localStorage.getItem('csrf_token');
       if (!existingToken) {
         try {
-          // Use the correct CSRF token endpoint (without /api prefix)
-          const baseUrl = API_BASE_URL.replace('/api', '');
-          const response = await axios.get(`${baseUrl}/csrf-token`, {
-            withCredentials: true,
-            headers: {
-              'Accept': 'application/json',
-            },
-          });
+          console.log('Fetching CSRF token from:', '/csrf-token');
+          const response = await this.csrfClient.get('/csrf-token');
           const csrfToken = response.data.data.csrfToken;
           localStorage.setItem('csrf_token', csrfToken);
+          console.log('CSRF token fetched and stored:', csrfToken.substring(0, 10) + '...');
         } catch (error) {
-          console.warn('Failed to get CSRF token, continuing without it:', error);
+          console.error('Failed to get CSRF token:', error);
           // Don't throw error, just continue without CSRF token for now
         }
+      } else {
+        console.log('Using existing CSRF token:', existingToken.substring(0, 10) + '...');
       }
+    }
+  }
+
+  // Special login method that handles CSRF token in one go
+  async loginWithCSRF(email: string, password: string): Promise<AxiosResponse<any>> {
+    try {
+      // First, get a fresh CSRF token
+      console.log('Fetching fresh CSRF token for login...');
+      const csrfResponse = await this.csrfClient.get('/csrf-token');
+      const csrfToken = csrfResponse.data.data.csrfToken;
+      console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
+
+      // Now make the login request with the same session
+      const loginResponse = await this.csrfClient.post('/api/auth/login', {
+        email,
+        password,
+      }, {
+        headers: {
+          'X-CSRF-Token': csrfToken,
+        },
+      });
+
+      // Store the token for future use
+      localStorage.setItem('csrf_token', csrfToken);
+
+      return loginResponse;
+    } catch (error) {
+      console.error('Login with CSRF failed:', error);
+      throw error;
     }
   }
 

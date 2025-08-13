@@ -80,10 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await adminApiClient.post('/auth/login', {
-        email,
-        password,
-      });
+      // Use the special login method that handles CSRF token properly
+      const response = await adminApiClient.loginWithCSRF(email, password);
 
       const { data } = response.data;
       const { user: backendUser, tokens } = data;
