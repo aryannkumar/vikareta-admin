@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApiClient } from '@/lib/api/admin-client';
+import { useToast } from './toast-provider';
 
 export interface AdminUser {
   id: string;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   // Handle hydration
   useEffect(() => {
@@ -117,6 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('Auth check failed:', error);
       console.log('Auth check: Clearing tokens and redirecting to login');
+
+      // Show error toast only if it's not a simple token expiry
+      if (error.response?.status !== 401) {
+        toast.error('Authentication Error', 'Please try logging in again.');
+      }
 
       // Clear invalid tokens
       localStorage.removeItem('admin_token');
