@@ -11,6 +11,7 @@ class AdminApiClient {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/admin`,
       timeout: 30000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -33,7 +34,7 @@ class AdminApiClient {
           if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
             const csrfToken = localStorage.getItem('csrf_token');
             if (csrfToken) {
-              config.headers['x-csrf-token'] = csrfToken;
+              config.headers['X-CSRF-Token'] = csrfToken;
             }
           }
         }
@@ -44,11 +45,33 @@ class AdminApiClient {
       }
     );
 
-    // Response interceptor to handle auth errors
+    // Response interceptor to handle auth and CSRF errors
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
+        
+        // Handle 403 CSRF token errors
+        if (error.response?.status === 403 && !originalRequest._csrfRetry) {
+          const errorData = error.response?.data;
+          const message = errorData?.error?.message || errorData?.message || '';
+          
+          if (message.includes('CSRF') || message.includes('csrf')) {
+            console.log('CSRF token expired, clearing and retrying...');
+            originalRequest._csrfRetry = true;
+            
+            // Clear old token and get fresh one
+            localStorage.removeItem('csrf_token');
+            await this.ensureCSRFToken();
+            
+            const csrfToken = localStorage.getItem('csrf_token');
+            if (csrfToken) {
+              originalRequest.headers['X-CSRF-Token'] = csrfToken;
+            }
+            
+            return this.client(originalRequest);
+          }
+        }
         
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
@@ -124,6 +147,7 @@ class AdminApiClient {
     const authClient = axios.create({
       baseURL: API_BASE_URL,
       timeout: 30000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -139,7 +163,7 @@ class AdminApiClient {
       if (method !== 'get') {
         const csrfToken = localStorage.getItem('csrf_token');
         if (csrfToken) {
-          authClient.defaults.headers['x-csrf-token'] = csrfToken;
+          authClient.defaults.headers['X-CSRF-Token'] = csrfToken;
         }
       }
     }
@@ -156,7 +180,14 @@ class AdminApiClient {
       const existingToken = localStorage.getItem('csrf_token');
       if (!existingToken) {
         try {
-          const response = await axios.get(`${API_BASE_URL}/csrf-token`);
+          // Use the correct CSRF token endpoint (without /api prefix)
+          const baseUrl = API_BASE_URL.replace('/api', '');
+          const response = await axios.get(`${baseUrl}/csrf-token`, {
+            withCredentials: true,
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
           const csrfToken = response.data.data.csrfToken;
           localStorage.setItem('csrf_token', csrfToken);
         } catch (error) {
