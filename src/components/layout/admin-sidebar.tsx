@@ -48,7 +48,6 @@ const navigation: NavigationItem[] = [
     permission: 'products.read',
     children: [
       { name: 'All Products', href: '/dashboard/products', icon: Package },
-      { name: 'Pending Approval', href: '/dashboard/products/pending', icon: AlertTriangle },
       { name: 'Categories', href: '/dashboard/categories', icon: FileText },
     ],
   },
@@ -59,17 +58,6 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'All Orders', href: '/dashboard/orders', icon: ShoppingCart },
       { name: 'Disputes', href: '/dashboard/disputes', icon: AlertTriangle },
-      { name: 'Refunds', href: '/dashboard/orders/refunds', icon: CreditCard },
-    ],
-  },
-  {
-    name: 'Content Moderation',
-    icon: FileText,
-    permission: 'content.read',
-    children: [
-      { name: 'All Content', href: '/dashboard/content', icon: FileText },
-      { name: 'Flagged Content', href: '/dashboard/content/flagged', icon: AlertTriangle },
-      { name: 'Reported Content', href: '/dashboard/content/reported', icon: Shield },
     ],
   },
   {
@@ -88,8 +76,17 @@ const navigation: NavigationItem[] = [
     permission: 'analytics.read',
     children: [
       { name: 'Platform Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-      { name: 'Financial Reports', href: '/dashboard/reports/financial', icon: FileText },
-      { name: 'User Reports', href: '/dashboard/reports/users', icon: Users },
+      { name: 'Reports', href: '/dashboard/reports', icon: FileText },
+    ],
+  },
+  {
+    name: 'Content Moderation',
+    icon: FileText,
+    permission: 'content.read',
+    children: [
+      { name: 'All Content', href: '/dashboard/content', icon: FileText },
+      { name: 'Flagged Content', href: '/dashboard/content/flagged', icon: AlertTriangle },
+      { name: 'Reported Content', href: '/dashboard/content/reported', icon: Shield },
     ],
   },
   {
@@ -100,7 +97,6 @@ const navigation: NavigationItem[] = [
       { name: 'System Configuration', href: '/dashboard/system/config', icon: Settings },
       { name: 'Notification Templates', href: '/dashboard/system/notifications', icon: Bell },
       { name: 'Feature Flags', href: '/dashboard/system/features', icon: Shield },
-      { name: 'API Management', href: '/dashboard/system/api', icon: Database },
     ],
   },
 ];

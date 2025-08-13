@@ -1,47 +1,35 @@
-// API Configuration with fallback support for Admin
+// API Configuration for Admin Panel
 export const API_CONFIG = {
-    // Primary API URLs (in order of preference)
-    apiUrls: [
-        process.env.NEXT_PUBLIC_API_URL_PRIMARY || 'http://api.vikareta.com/api',
-        process.env.NEXT_PUBLIC_API_URL_SECONDARY || 'https://api.vikareta.com/api',
-    ].filter(Boolean),
-
-    // WebSocket URLs
-    wsUrls: [
-        process.env.NEXT_PUBLIC_WS_URL_PRIMARY || 'ws://api.vikareta.com',
-        process.env.NEXT_PUBLIC_WS_URL_SECONDARY || 'wss://api.vikareta.com',
-    ].filter(Boolean),
-
-    // App URL
-    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001',
-
+    // Primary API URL - use production API
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com',
+    apiUrl: (process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com') + '/api',
+    
+    // Admin-specific endpoints
+    adminEndpoint: '/admin',
+    authEndpoint: '/auth',
+    
     // Timeout settings
-    timeout: 10000, // 10 seconds
-    retryAttempts: 2,
+    timeout: 30000, // 30 seconds for admin operations
+    retryAttempts: 3,
+    
+    // CORS settings
+    withCredentials: true,
+    
+    // Headers
+    defaultHeaders: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    },
 };
 
-// Function to get the best available API URL
-export const getApiUrl = async (): Promise<string> => {
-    for (const url of API_CONFIG.apiUrls) {
-        try {
-            // Test if the API is reachable
-            const response = await fetch(`${url}/health`, {
-                method: 'GET'
-            });
+// Get the API base URL
+export const getApiUrl = (): string => {
+    return API_CONFIG.apiUrl;
+};
 
-            if (response.ok) {
-                console.log(`Using API URL: ${url}`);
-                return url;
-            }
-        } catch (error) {
-            console.warn(`API URL ${url} is not reachable:`, error);
-            continue;
-        }
-    }
-
-    // Fallback to the first URL if none are reachable
-    console.warn('No API URLs are reachable, using fallback:', API_CONFIG.apiUrls[0]);
-    return API_CONFIG.apiUrls[0];
+// Get the base URL (without /api)
+export const getBaseUrl = (): string => {
+    return API_CONFIG.baseUrl;
 };
 
 export default API_CONFIG;

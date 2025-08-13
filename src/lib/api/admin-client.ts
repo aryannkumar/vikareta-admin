@@ -1,8 +1,8 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { getApiUrl } from '@/config/api';
+import { API_CONFIG, getApiUrl, getBaseUrl } from '@/config/api';
 
-// Use production API URL as fallback
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com/api';
+const API_BASE_URL = getApiUrl();
+const BASE_URL = getBaseUrl();
 
 class AdminApiClient {
   private client: AxiosInstance;
@@ -11,24 +11,17 @@ class AdminApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/admin`,
-      timeout: 30000,
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      timeout: API_CONFIG.timeout,
+      withCredentials: API_CONFIG.withCredentials,
+      headers: API_CONFIG.defaultHeaders,
     });
 
-    // Separate client for CSRF token and auth requests to maintain session
-    // The CSRF endpoint is at the root level, not under /api
-    const baseUrl = API_BASE_URL.replace('/api', '');
-    console.log('CSRF client base URL:', baseUrl);
+    // Separate client for CSRF token and auth requests
     this.csrfClient = axios.create({
-      baseURL: baseUrl,
-      timeout: 30000,
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      baseURL: BASE_URL,
+      timeout: API_CONFIG.timeout,
+      withCredentials: API_CONFIG.withCredentials,
+      headers: API_CONFIG.defaultHeaders,
     });
 
     this.setupInterceptors();
@@ -236,25 +229,19 @@ class AdminApiClient {
   // Special login method that handles CSRF token in one go
   async loginWithCSRF(email: string, password: string): Promise<AxiosResponse<any>> {
     try {
-      // First, get a fresh CSRF token using axios with proper config
+      // First, get a fresh CSRF token
       console.log('Fetching fresh CSRF token for login...');
-      const csrfUrl = 'https://api.vikareta.com/csrf-token';
+      const csrfUrl = `${BASE_URL}/csrf-token`;
       console.log('CSRF URL:', csrfUrl);
 
       const csrfResponse = await axios.get(csrfUrl, {
         withCredentials: true,
-        maxRedirects: 0, // Don't follow redirects
-        validateStatus: (status) => status < 400, // Accept any status < 400
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+        headers: API_CONFIG.defaultHeaders,
       });
 
-      console.log('CSRF response status:', csrfResponse.status);
-      console.log('CSRF response data:', csrfResponse.data);
+      console.log('CSRF response:', csrfResponse.data);
 
-      // Handle different response structures
+      // Extract CSRF token
       let csrfToken;
       if (csrfResponse.data?.data?.csrfToken) {
         csrfToken = csrfResponse.data.data.csrfToken;
@@ -267,8 +254,8 @@ class AdminApiClient {
 
       console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
 
-      // Now make the login request with the same session
-      const loginUrl = 'https://api.vikareta.com/api/auth/login';
+      // Now make the login request
+      const loginUrl = `${API_BASE_URL}/auth/login`;
       console.log('Login URL:', loginUrl);
 
       const loginResponse = await axios.post(loginUrl, {
@@ -276,19 +263,15 @@ class AdminApiClient {
         password,
       }, {
         withCredentials: true,
-        maxRedirects: 0, // Don't follow redirects
-        validateStatus: (status) => status < 400,
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          ...API_CONFIG.defaultHeaders,
           'X-CSRF-Token': csrfToken,
         },
       });
 
-      console.log('Login response status:', loginResponse.status);
-      console.log('Login response data:', loginResponse.data);
+      console.log('Login response:', loginResponse.data);
 
-      // Store the token for future use
+      // Store the CSRF token for future use
       localStorage.setItem('csrf_token', csrfToken);
 
       return loginResponse;
