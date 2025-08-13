@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
+// Force dynamic rendering to prevent static generation
+export const dynamic = 'force-dynamic';
 import { 
   Tag, 
   Search, 

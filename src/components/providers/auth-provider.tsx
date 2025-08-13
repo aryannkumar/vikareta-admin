@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { adminApiClient } from '@/lib/api/admin-client';
-import { useToast } from './toast-provider';
+import { useSafeToast } from '@/hooks/use-safe-toast';
 
 export interface AdminUser {
   id: string;
@@ -39,18 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
-  const toast = useToast();
 
-  // Handle hydration
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (isHydrated) {
-      checkAuth();
-    }
-  }, [isHydrated]);
+  const toast = useSafeToast();
 
   const checkAuth = async () => {
     try {
@@ -138,6 +128,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   };
+
+  // Handle hydration
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (isHydrated) {
+      checkAuth();
+    }
+  }, [checkAuth, isHydrated]);
 
   const login = async (email: string, password: string) => {
     try {

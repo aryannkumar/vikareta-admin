@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+
+// Force dynamic rendering to prevent static generation
+export const dynamic = 'force-dynamic';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Shield } from 'lucide-react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { useToast } from '@/components/providers/toast-provider';
+import { useSafeToast } from '@/hooks/use-safe-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,8 +16,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useAuth();
-  const { error } = useToast();
   const router = useRouter();
+  
+  const toast = useSafeToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +28,7 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/dashboard');
     } catch (err: any) {
-      error('Login Failed', err.message);
+      toast.error('Login Failed', err.message);
     } finally {
       setIsLoading(false);
     }
