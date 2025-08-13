@@ -201,7 +201,19 @@ class AdminApiClient {
         try {
           console.log('Fetching CSRF token from:', '/csrf-token');
           const response = await this.csrfClient.get('/csrf-token');
-          const csrfToken = response.data.data.csrfToken;
+          console.log('CSRF response:', response.data);
+          
+          // Handle different response structures
+          let csrfToken;
+          if (response.data?.data?.csrfToken) {
+            csrfToken = response.data.data.csrfToken;
+          } else if (response.data?.csrfToken) {
+            csrfToken = response.data.csrfToken;
+          } else {
+            console.error('Unexpected CSRF response structure:', response.data);
+            return; // Don't throw error, just continue without CSRF token
+          }
+          
           localStorage.setItem('csrf_token', csrfToken);
           console.log('CSRF token fetched and stored:', csrfToken.substring(0, 10) + '...');
         } catch (error) {
@@ -220,7 +232,19 @@ class AdminApiClient {
       // First, get a fresh CSRF token
       console.log('Fetching fresh CSRF token for login...');
       const csrfResponse = await this.csrfClient.get('/csrf-token');
-      const csrfToken = csrfResponse.data.data.csrfToken;
+      console.log('CSRF response:', csrfResponse.data);
+      
+      // Handle different response structures
+      let csrfToken;
+      if (csrfResponse.data?.data?.csrfToken) {
+        csrfToken = csrfResponse.data.data.csrfToken;
+      } else if (csrfResponse.data?.csrfToken) {
+        csrfToken = csrfResponse.data.csrfToken;
+      } else {
+        console.error('Unexpected CSRF response structure:', csrfResponse.data);
+        throw new Error('Could not extract CSRF token from response');
+      }
+      
       console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
 
       // Now make the login request with the same session
