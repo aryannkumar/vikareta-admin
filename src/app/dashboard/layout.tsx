@@ -3,6 +3,7 @@
 import { useAuth } from '@/components/providers/auth-provider';
 import { AdminSidebar } from '@/components/layout/admin-sidebar';
 import { AdminHeader } from '@/components/layout/admin-header';
+import { FullPageLoading } from '@/components/ui/loading';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -21,15 +22,11 @@ export default function DashboardLayout({
   }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+    return <FullPageLoading message="Loading admin panel..." />;
   }
 
   if (!isAuthenticated) {
-    return null;
+    return <FullPageLoading message="Redirecting to login..." />;
   }
 
   return (

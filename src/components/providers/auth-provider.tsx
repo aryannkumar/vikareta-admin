@@ -36,42 +36,96 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
 
+  // Handle hydration
   useEffect(() => {
-    checkAuth();
+    setIsHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (isHydrated) {
+      checkAuth();
+    }
+  }, [isHydrated]);
 
   const checkAuth = async () => {
     try {
-      const token = localStorage.getItem('admin_token');
-      if (!token) {
+      // Check if we're in the browser
+      if (typeof window === 'undefined') {
+        console.log('Auth check: Not in browser, skipping');
         setIsLoading(false);
         return;
       }
 
+      const token = localStorage.getItem('admin_token');
+      console.log('Auth check: Token exists:', !!token);
+
+      if (!token) {
+        console.log('Auth check: No token found');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Auth check: Validating token with backend...');
+
+      // Validate token with backend
       const response = await adminApiClient.get('/auth/me');
-      const backendUser = response.data.user;
 
-      // Transform backend user data to match AdminUser interface
-      const adminUser: AdminUser = {
-        id: backendUser.id,
-        email: backendUser.email,
-        firstName: backendUser.firstName,
-        lastName: backendUser.lastName,
-        role: backendUser.userType === 'admin' ? 'admin' : 'support', // Map userType to role
-        permissions: [], // Default empty permissions for now
-        isActive: backendUser.isVerified || true,
-        phone: backendUser.phone,
-        businessName: backendUser.businessName,
-        userType: backendUser.userType,
-        verificationTier: backendUser.verificationTier,
-        isVerified: backendUser.isVerified,
-      };
+      console.log('Auth check: Backend response:', response.data);
 
-      setUser(adminUser);
-    } catch (error) {
+      if (response.data?.success && response.data?.data) {
+        const backendUser = response.data.data;
+
+        console.log('Auth check: User data received:', {
+          id: backendUser.id,
+          email: backendUser.email,
+          userType: backendUser.userType,
+          isVerified: backendUser.isVerified
+        });
+
+        // Check if user has admin privileges
+        if (backendUser.userType !== 'admin' && backendUser.userType !== 'seller') {
+          throw new Error('Access denied: Admin privileges required');
+        }
+
+        // Transform backend user data to match AdminUser interface
+        const adminUser: AdminUser = {
+          id: backendUser.id,
+          email: backendUser.email,
+          firstName: backendUser.firstName,
+          lastName: backendUser.lastName,
+          role: backendUser.userType === 'admin' ? 'admin' : 'support', // Map userType to role
+          permissions: [], // Default empty permissions for now
+          isActive: backendUser.isVerified || true,
+          phone: backendUser.phone,
+          businessName: backendUser.businessName,
+          userType: backendUser.userType,
+          verificationTier: backendUser.verificationTier,
+          isVerified: backendUser.isVerified,
+        };
+
+        console.log('Auth check: Setting user as authenticated');
+        setUser(adminUser);
+
+        // Update cookie to ensure middleware has access
+        document.cookie = `admin_token=${token}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('Auth check failed:', error);
+      console.log('Auth check: Clearing tokens and redirecting to login');
+
+      // Clear invalid tokens
       localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_refresh_token');
+      localStorage.removeItem('csrf_token');
+
+      // Clear cookie
+      document.cookie = 'admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -84,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await adminApiClient.loginWithCSRF(email, password);
 
       console.log('Auth provider received response:', response.data);
-      
+
       // The response structure is: {success: true, data: {user, token, refreshToken}, message}
       const responseData = response.data.data;
       const backendUser = responseData.user;
@@ -92,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accessToken: responseData.token,
         refreshToken: responseData.refreshToken
       };
-      
+
       console.log('Extracted user:', backendUser);
       console.log('Extracted tokens:', tokens);
       console.log('Storing tokens in localStorage...');
