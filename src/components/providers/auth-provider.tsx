@@ -95,8 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       console.log('Extracted user:', backendUser);
       console.log('Extracted tokens:', tokens);
+      console.log('Storing tokens in localStorage...');
       localStorage.setItem('admin_token', tokens.accessToken);
       localStorage.setItem('admin_refresh_token', tokens.refreshToken);
+      console.log('Tokens stored. Admin token length:', tokens.accessToken.length);
       // Also set cookie for middleware
       document.cookie = `admin_token=${tokens.accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
 

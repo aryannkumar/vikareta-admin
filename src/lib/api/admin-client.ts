@@ -40,8 +40,12 @@ class AdminApiClient {
       async (config) => {
         if (typeof window !== 'undefined') {
           const token = localStorage.getItem('admin_token');
+          console.log('Admin API request interceptor - token found:', !!token);
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('Added Authorization header to request:', config.url);
+          } else {
+            console.warn('No admin_token found in localStorage for request:', config.url);
           }
 
           // Add CSRF token for non-GET requests
