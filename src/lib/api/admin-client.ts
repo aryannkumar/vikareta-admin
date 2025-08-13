@@ -19,8 +19,11 @@ class AdminApiClient {
     });
 
     // Separate client for CSRF token and auth requests to maintain session
+    // The CSRF endpoint is at the root level, not under /api
+    const baseUrl = API_BASE_URL.replace('/api', '');
+    console.log('CSRF client base URL:', baseUrl);
     this.csrfClient = axios.create({
-      baseURL: API_BASE_URL.replace('/api', ''), // Remove /api for CSRF endpoint
+      baseURL: baseUrl,
       timeout: 30000,
       withCredentials: true,
       headers: {
@@ -202,7 +205,7 @@ class AdminApiClient {
           console.log('Fetching CSRF token from:', '/csrf-token');
           const response = await this.csrfClient.get('/csrf-token');
           console.log('CSRF response:', response.data);
-          
+
           // Handle different response structures
           let csrfToken;
           if (response.data?.data?.csrfToken) {
@@ -213,7 +216,7 @@ class AdminApiClient {
             console.error('Unexpected CSRF response structure:', response.data);
             return; // Don't throw error, just continue without CSRF token
           }
-          
+
           localStorage.setItem('csrf_token', csrfToken);
           console.log('CSRF token fetched and stored:', csrfToken.substring(0, 10) + '...');
         } catch (error) {
@@ -229,11 +232,21 @@ class AdminApiClient {
   // Special login method that handles CSRF token in one go
   async loginWithCSRF(email: string, password: string): Promise<AxiosResponse<any>> {
     try {
-      // First, get a fresh CSRF token
+      // First, get a fresh CSRF token directly from the correct URL
       console.log('Fetching fresh CSRF token for login...');
-      const csrfResponse = await this.csrfClient.get('/csrf-token');
+      const csrfUrl = 'https://api.vikareta.com/csrf-token';
+      console.log('CSRF URL:', csrfUrl);
+
+      const csrfResponse = await axios.get(csrfUrl, {
+        withCredentials: true,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
       console.log('CSRF response:', csrfResponse.data);
-      
+
       // Handle different response structures
       let csrfToken;
       if (csrfResponse.data?.data?.csrfToken) {
@@ -244,15 +257,20 @@ class AdminApiClient {
         console.error('Unexpected CSRF response structure:', csrfResponse.data);
         throw new Error('Could not extract CSRF token from response');
       }
-      
+
       console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
 
       // Now make the login request with the same session
-      const loginResponse = await this.csrfClient.post('/api/auth/login', {
+      const loginUrl = 'https://api.vikareta.com/api/auth/login';
+      console.log('Login URL:', loginUrl);
+
+      const loginResponse = await axios.post(loginUrl, {
         email,
         password,
       }, {
+        withCredentials: true,
         headers: {
+          'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
         },
       });
