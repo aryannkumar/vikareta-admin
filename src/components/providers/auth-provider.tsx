@@ -147,22 +147,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('Auth provider received response:', response.data);
 
-      // The response structure is: {success: true, data: {user, token, refreshToken}, message}
-      const responseData = response.data.data;
-      const backendUser = responseData.user;
-      const tokens = {
-        accessToken: responseData.token,
-        refreshToken: responseData.refreshToken
-      };
+      let backendUser;
+      let tokens = null;
+
+      // Handle different response formats
+      if (response.data?.data?.user) {
+        // New format with tokens in data
+        const responseData = response.data.data;
+        backendUser = responseData.user;
+        if (responseData.token && responseData.refreshToken) {
+          tokens = {
+            accessToken: responseData.token,
+            refreshToken: responseData.refreshToken
+          };
+        }
+      } else if (response.data?.user) {
+        // Old format with user directly
+        backendUser = response.data.user;
+      } else {
+        throw new Error('Invalid response format: no user data found');
+      }
 
       console.log('Extracted user:', backendUser);
-      console.log('Extracted tokens:', tokens);
-      console.log('Storing tokens in localStorage...');
-      localStorage.setItem('admin_token', tokens.accessToken);
-      localStorage.setItem('admin_refresh_token', tokens.refreshToken);
-      console.log('Tokens stored. Admin token length:', tokens.accessToken.length);
-      // Also set cookie for middleware
-      document.cookie = `admin_token=${tokens.accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+
+      // Check if user has admin privileges
+      if (backendUser.userType !== 'admin') {
+        throw new Error('Access denied: Admin privileges required');
+      }
+
+      if (tokens) {
+        console.log('Extracted tokens:', tokens);
+        console.log('Storing tokens in localStorage...');
+        localStorage.setItem('admin_token', tokens.accessToken);
+        localStorage.setItem('admin_refresh_token', tokens.refreshToken);
+        console.log('Tokens stored. Admin token length:', tokens.accessToken.length);
+        // Also set cookie for middleware
+        document.cookie = `admin_token=${tokens.accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+      } else {
+        console.log('No tokens in response - checking localStorage for existing tokens');
+        const existingToken = localStorage.getItem('admin_token');
+        if (!existingToken) {
+          console.warn('No tokens available - admin functionality may be limited');
+        }
+      }
 
       // Transform backend user data to match AdminUser interface
       const adminUser: AdminUser = {

@@ -39,6 +39,8 @@ class AdminApiClient {
             console.log('Added Authorization header to request:', config.url);
           } else {
             console.warn('No admin_token found in localStorage for request:', config.url);
+            console.log('Falling back to cookie-based authentication');
+            // Don't add Authorization header - let cookies handle authentication
           }
 
           // Add CSRF token for non-GET requests
@@ -273,6 +275,46 @@ class AdminApiClient {
 
       // Store the CSRF token for future use
       localStorage.setItem('csrf_token', csrfToken);
+
+      // Check if this is an admin user and if tokens are provided in response
+      if (loginResponse.data?.data?.token) {
+        // Admin user - tokens provided in response body
+        console.log('Admin login detected - storing tokens from response');
+        localStorage.setItem('admin_token', loginResponse.data.data.token);
+        localStorage.setItem('admin_refresh_token', loginResponse.data.data.refreshToken);
+
+        // Also set cookie for middleware compatibility
+        document.cookie = `admin_token=${loginResponse.data.data.token}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+
+        return loginResponse;
+      } else if (loginResponse.data?.user?.userType === 'admin') {
+        // Admin user but no tokens in response - need to extract from cookies
+        console.log('Admin user detected but no tokens in response - checking cookies');
+
+        // Try to get tokens from cookies set by the server
+        const cookies = document.cookie.split(';');
+        let accessToken = null;
+
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === 'access_token') {
+            accessToken = value;
+            break;
+          }
+        }
+
+        if (accessToken) {
+          console.log('Found access token in cookies, storing in localStorage');
+          localStorage.setItem('admin_token', accessToken);
+
+          // Also set our own cookie for consistency
+          document.cookie = `admin_token=${accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+        } else {
+          console.warn('Admin user logged in but no access token found in cookies');
+        }
+
+        return loginResponse;
+      }
 
       return loginResponse;
     } catch (error) {
