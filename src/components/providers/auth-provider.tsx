@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { handlePostLoginRedirect, syncSSOToSubdomains } from '@/lib/utils/cross-domain-auth';
 import { adminApiClient } from '@/lib/api/admin-client';
 import { useSafeToast } from '@/hooks/use-safe-toast';
 
@@ -138,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isHydrated) {
       checkAuth();
     }
-  }, [checkAuth, isHydrated]);
+  }, [isHydrated]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -207,10 +208,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isVerified: backendUser.isVerified,
       };
 
-      console.log('Setting admin user:', adminUser);
-      setUser(adminUser);
-      console.log('Redirecting to dashboard...');
-      router.push('/dashboard');
+  setUser(adminUser);
+  try { syncSSOToSubdomains(); } catch {}
+  try { handlePostLoginRedirect(); } catch { router.push('/'); }
     } catch (error: any) {
       console.error('Login error in auth provider:', error);
       console.error('Error details:', {

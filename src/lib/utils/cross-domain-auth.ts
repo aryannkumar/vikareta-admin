@@ -29,10 +29,14 @@ export interface AuthData {
   tokens: AuthTokens;
 }
 
+const MAIN_HOST = process?.env?.NEXT_PUBLIC_MAIN_HOST || 'vikareta.com';
+const DASHBOARD_HOST = process?.env?.NEXT_PUBLIC_DASHBOARD_HOST || 'dashboard.vikareta.com';
+const ADMIN_HOST = process?.env?.NEXT_PUBLIC_ADMIN_HOST || 'admin.vikareta.com';
+
 const DOMAINS = {
-  main: 'vikareta.com',
-  dashboard: 'dashboard.vikareta.com',
-  admin: 'admin.vikareta.com',
+  main: MAIN_HOST,
+  dashboard: DASHBOARD_HOST,
+  admin: ADMIN_HOST,
 };
 
 const STORAGE_KEYS = {
@@ -206,6 +210,76 @@ export function handlePostLoginRedirect(): void {
       window.location.href = '/';
     }
   }
+}
+
+export async function syncSSOToSubdomains(targets?: string[]): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  const backend = process.env.NEXT_PUBLIC_API_BASE || (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : 'https://api.vikareta.com');
+
+  if (!targets || targets.length === 0) {
+    const configured = process.env.NEXT_PUBLIC_SSO_TARGETS;
+    const adminStandalone = process.env.NEXT_PUBLIC_ADMIN_STANDALONE === 'true';
+    if (configured) {
+      targets = configured.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      targets = [DASHBOARD_HOST];
+    }
+
+    if (adminStandalone) {
+      targets = targets.filter(t => t !== ADMIN_HOST);
+    }
+  }
+
+  const syncPromises: Promise<void>[] = [];
+
+  for (const host of targets) {
+    const p = (async () => {
+      try {
+        const resp = await fetch(`${backend}/api/auth/sso-token`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: host }),
+        });
+
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const token = data?.token;
+        if (!token) return;
+
+        await new Promise<void>((resolve) => {
+          const iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = `https://${host}/sso/receive?token=${encodeURIComponent(token)}`;
+
+          const cleanup = () => {
+            try { window.removeEventListener('message', onMessage); } catch {}
+            try { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); } catch {}
+            resolve();
+          };
+
+          const onMessage = (e: MessageEvent) => {
+            if (typeof e.origin === 'string' && e.origin.includes(host) && e.data?.sso === 'ok') {
+              cleanup();
+            }
+          };
+
+          window.addEventListener('message', onMessage);
+          document.body.appendChild(iframe);
+
+          // Safety timeout
+          setTimeout(() => cleanup(), 5000);
+        });
+      } catch (err) {
+        // swallow errors; SSO sync should be best-effort
+      }
+    })();
+
+    syncPromises.push(p);
+  }
+
+  await Promise.all(syncPromises);
 }
 
 /**

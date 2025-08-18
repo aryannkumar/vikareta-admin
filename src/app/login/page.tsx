@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Shield } from 'lucide-react';
 import { useAuth } from '@/components/providers/auth-provider';
+import { handlePostLoginRedirect, syncSSOToSubdomains } from '@/lib/utils/cross-domain-auth';
 import { useSafeToast } from '@/hooks/use-safe-toast';
 
 export default function LoginPage() {
@@ -26,7 +27,8 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/dashboard');
+  try { syncSSOToSubdomains(); } catch {}
+  try { handlePostLoginRedirect(); } catch { router.push('/'); }
     } catch (err: any) {
       toast.error('Login Failed', err.message);
     } finally {
