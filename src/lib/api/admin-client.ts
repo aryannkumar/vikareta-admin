@@ -97,7 +97,7 @@ class AdminApiClient {
                 // Try to refresh the token
                 const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {
                   refreshToken
-                });
+                }, { withCredentials: true });
 
                 const { accessToken } = refreshResponse.data.data.tokens;
                 localStorage.setItem('admin_token', accessToken);
