@@ -224,9 +224,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      // Call same-origin logout proxy to clear HttpOnly cookies server-side
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-    } catch {}
+      // Import and use cross-domain logout
+      const { performSecureLogout } = await import('@/lib/auth/cross-domain-logout');
+      await performSecureLogout();
+    } catch (error) {
+      console.error('Admin logout error:', error);
+      
+      // Fallback: Call same-origin logout proxy
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      } catch {}
+    }
+    
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_refresh_token');
     // Also remove cookie
