@@ -222,7 +222,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call same-origin logout proxy to clear HttpOnly cookies server-side
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {}
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_refresh_token');
     // Also remove cookie

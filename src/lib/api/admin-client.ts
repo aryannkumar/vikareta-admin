@@ -1,15 +1,16 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { API_CONFIG, getApiUrl, getBaseUrl } from '@/config/api';
+import { API_CONFIG, getApiUrl } from '@/config/api';
 
 const API_BASE_URL = getApiUrl();
-const BASE_URL = getBaseUrl();
+// Same-origin proxies for auth endpoints within the Next.js app
+const AUTH_PROXY_BASE = '/api/auth';
 
 class AdminApiClient {
   private client: AxiosInstance;
   private csrfClient: AxiosInstance;
 
   constructor() {
-    this.client = axios.create({
+  this.client = axios.create({
       baseURL: `${API_BASE_URL}/admin`,
       timeout: API_CONFIG.timeout,
       withCredentials: API_CONFIG.withCredentials,
@@ -18,7 +19,8 @@ class AdminApiClient {
 
     // Separate client for CSRF token and auth requests
     this.csrfClient = axios.create({
-      baseURL: BASE_URL,
+      // Use same-origin for CSRF to carry cookies reliably
+      baseURL: '/',
       timeout: API_CONFIG.timeout,
       withCredentials: API_CONFIG.withCredentials,
       headers: API_CONFIG.defaultHeaders,
@@ -105,7 +107,7 @@ class AdminApiClient {
                 // Retry the original request with new token
                 originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                 return this.client(originalRequest);
-              } catch (refreshError) {
+              } catch {
                 // Refresh failed, redirect to login
                 localStorage.removeItem('admin_token');
                 localStorage.removeItem('admin_refresh_token');
@@ -157,9 +159,9 @@ class AdminApiClient {
       await this.ensureCSRFToken();
     }
 
-    // Use the same client that fetched the CSRF token to maintain session
+    // Use same-origin proxy for auth endpoints to ensure cookies/CSRF
     const authClient = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: AUTH_PROXY_BASE,
       timeout: 30000,
       withCredentials: true,
       headers: {
@@ -185,7 +187,7 @@ class AdminApiClient {
       }
     }
 
-    console.log('Making auth request:', method.toUpperCase(), `${API_BASE_URL}${url}`);
+  console.log('Making auth request via proxy:', method.toUpperCase(), `${AUTH_PROXY_BASE}${url}`);
     console.log('Request headers:', authClient.defaults.headers);
     console.log('Request data:', data);
 
@@ -201,7 +203,7 @@ class AdminApiClient {
       const existingToken = localStorage.getItem('csrf_token');
       if (!existingToken) {
         try {
-          console.log('Fetching CSRF token from:', '/csrf-token');
+          console.log('Fetching CSRF token from same-origin:', '/csrf-token');
           const response = await this.csrfClient.get('/csrf-token');
           console.log('CSRF response:', response.data);
 
@@ -233,10 +235,10 @@ class AdminApiClient {
     try {
       // First, get a fresh CSRF token
       console.log('Fetching fresh CSRF token for login...');
-      const csrfUrl = `${BASE_URL}/csrf-token`;
-      console.log('CSRF URL:', csrfUrl);
+  const csrfUrl = `/csrf-token`;
+  console.log('CSRF URL (same-origin):', csrfUrl);
 
-      const csrfResponse = await axios.get(csrfUrl, {
+  const csrfResponse = await axios.get(csrfUrl, {
         withCredentials: true,
         headers: API_CONFIG.defaultHeaders,
       });
@@ -257,17 +259,18 @@ class AdminApiClient {
       console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
 
       // Now make the login request
-      const loginUrl = `${API_BASE_URL}/auth/login`;
-      console.log('Login URL:', loginUrl);
+    const loginUrl = `${AUTH_PROXY_BASE}/login`;
+    console.log('Login URL (via proxy):', loginUrl);
 
-      const loginResponse = await axios.post(loginUrl, {
+    const loginResponse = await axios.post(loginUrl, {
         email,
         password,
       }, {
         withCredentials: true,
         headers: {
           ...API_CONFIG.defaultHeaders,
-          'X-CSRF-Token': csrfToken,
+      // Backend expects X-XSRF-TOKEN when using Laravel-like CSRF cookie pattern
+      'X-XSRF-TOKEN': csrfToken,
         },
       });
 
