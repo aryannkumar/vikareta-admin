@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Shield } from 'lucide-react';
 import { useAuth } from '@/components/providers/auth-provider';
-import { handlePostLoginRedirect, syncSSOToSubdomains } from '@/lib/utils/cross-domain-auth';
+import { vikaretaCrossDomainAuth } from '@/lib/auth/vikareta';
 import { useSafeToast } from '@/hooks/use-safe-toast';
 
 export default function LoginPage() {
@@ -26,9 +26,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-  try { syncSSOToSubdomains(); } catch {}
-  try { handlePostLoginRedirect(); } catch { router.push('/'); }
+      await login({ email, password });
+  try { vikaretaCrossDomainAuth.syncSSOAcrossDomains(); } catch {}
+  try { vikaretaCrossDomainAuth.handlePostLoginRedirect(); } catch { router.push('/'); }
     } catch (err: any) {
       toast.error('Login Failed', err.message);
     } finally {

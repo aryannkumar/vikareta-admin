@@ -16,15 +16,15 @@ class AdminAdvertisementApi {
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<T> {
-    const token = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('vikareta_access_token');
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': token ? `Bearer ${token}` : '',
         ...options.headers,
       },
-      ...options,
     });
 
     if (!response.ok) {
@@ -316,7 +316,7 @@ class AdminAdvertisementApi {
     if (options?.format) params.append('format', options.format);
     
     const queryString = params.toString();
-    const token = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('vikareta_access_token');
     
     const response = await fetch(
       `${API_BASE_URL}/api/ads/admin/reports/campaigns/export${queryString ? `?${queryString}` : ''}`,
@@ -347,7 +347,7 @@ class AdminAdvertisementApi {
     if (options?.format) params.append('format', options.format);
     
     const queryString = params.toString();
-    const token = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('vikareta_access_token');
     
     const response = await fetch(
       `${API_BASE_URL}/api/ads/admin/reports/analytics/export${queryString ? `?${queryString}` : ''}`,

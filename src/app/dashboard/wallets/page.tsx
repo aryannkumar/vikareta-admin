@@ -78,7 +78,7 @@ export default function WalletsPage() {
       setLoading(true);
       const response = await fetch(`/api/admin/users?page=${page}&limit=20`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('vikareta_access_token')}`,
         },
       });
       

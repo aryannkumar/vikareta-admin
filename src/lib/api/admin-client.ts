@@ -34,7 +34,7 @@ class AdminApiClient {
     this.client.interceptors.request.use(
       async (config) => {
         if (typeof window !== 'undefined') {
-          const token = localStorage.getItem('admin_token');
+          const token = localStorage.getItem('vikareta_access_token');
           console.log('Admin API request interceptor - token found:', !!token);
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -171,7 +171,7 @@ class AdminApiClient {
 
     // Add tokens to auth requests
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('admin_token');
+      const token = localStorage.getItem('vikareta_access_token');
       if (token) {
         authClient.defaults.headers.Authorization = `Bearer ${token}`;
       }

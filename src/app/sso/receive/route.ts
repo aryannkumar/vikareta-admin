@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       const cookieValue = token;
       const domainPart = process.env.NODE_ENV === 'production' ? '; Domain=.vikareta.com' : '';
       const securePart = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-      const cookie = `access_token=${cookieValue}; Path=/; HttpOnly; SameSite=None; Max-Age=${60 * 60}${domainPart}${securePart}`;
+      const cookie = `vikareta_access_token=${cookieValue}; Path=/; HttpOnly; SameSite=None; Max-Age=${60 * 60}${domainPart}${securePart}`;
 
       const html = `<!doctype html>
   <html><body>
