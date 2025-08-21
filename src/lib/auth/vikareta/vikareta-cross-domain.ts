@@ -147,7 +147,7 @@ export class VikaretaCrossDomainAuth {
   /**
    * Sync authentication across all Vikareta domains using secure SSO
    */
-  async syncSSOAcrossDomains(authData?: VikaretaAuthData): Promise<void> {
+  async syncSSOAcrossDomains(): Promise<void> {
     if (typeof window === 'undefined') return;
 
     const currentDomain = this.getCurrentDomain();
@@ -156,7 +156,7 @@ export class VikaretaCrossDomainAuth {
       .map(([, domain]) => domain);
 
     const syncPromises = targetDomains.map(domain => 
-      this.syncSingleDomain(domain, authData)
+  this.syncSingleDomain(domain)
     );
 
     try {
@@ -178,7 +178,7 @@ export class VikaretaCrossDomainAuth {
     // Store return URL securely
     localStorage.setItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL, currentUrl);
 
-    const loginUrl = `/login${returnUrlParam}`;
+  const loginUrl = `/login${returnUrlParam}`;
 
     window.location.href = loginUrl;
   }
@@ -249,11 +249,11 @@ export class VikaretaCrossDomainAuth {
     // Clear local data
     this.clearAuthData();
 
-    // Sync logout across domains
-    await this.syncLogoutAcrossDomains();
+  // Sync logout across domains
+  await this.syncLogoutAcrossDomains();
 
-    // Redirect to login
-    window.location.href = '/login';
+  // Redirect to login
+  window.location.href = '/login';
   }
 
   // Private helper methods
@@ -295,8 +295,10 @@ export class VikaretaCrossDomainAuth {
     return csrfCookie ? decodeURIComponent(csrfCookie.split('=')[1]) : null;
   }
 
-  private async syncSingleDomain(domain: string, _authData?: VikaretaAuthData): Promise<void> {
+  private async syncSingleDomain(domain: string): Promise<void> {
     try {
+  // Skip API domain for SSO sync
+  if (domain === this.domains.API) return;
       // Get SSO token for target domain
       const response = await fetch('/api/auth/sso-token', {
         method: 'POST',
@@ -310,71 +312,56 @@ export class VikaretaCrossDomainAuth {
 
       if (!response.ok) return;
 
-      const data = await response.json();
-      const token = data?.token;
-      if (!token) return;
+  const data = await response.json();
+  const token = data?.token;
+  if (!token) return;
 
-      // Use iframe to sync authentication
-      await this.createSSOFrame(domain, token);
+  // Use image beacon to sync authentication
+  await this.createSSOBeacon(domain, token);
     } catch (error) {
       console.error(`Failed to sync domain ${domain}:`, error);
     }
   }
 
-  private createSSOFrame(domain: string, token: string): Promise<void> {
+  private createSSOBeacon(domain: string, token: string): Promise<void> {
     return new Promise((resolve) => {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = `https://${domain}/sso/receive?token=${encodeURIComponent(token)}`;
-
-      const cleanup = () => {
-        try {
-          window.removeEventListener('message', onMessage);
-          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        } catch {}
+      try {
+        const img = new Image();
+        const url = `https://${domain}/sso/receive?token=${encodeURIComponent(token)}&t=${Date.now()}`;
+        const done = () => resolve();
+        img.onload = done;
+        img.onerror = done;
+        img.src = url;
+        setTimeout(done, 5000);
+      } catch {
         resolve();
-      };
-
-      const onMessage = (e: MessageEvent) => {
-        if (e.origin === `https://${domain}` && e.data?.sso === 'ok') {
-          cleanup();
-        }
-      };
-
-      window.addEventListener('message', onMessage);
-      document.body.appendChild(iframe);
-
-      // Safety timeout
-      setTimeout(cleanup, 5000);
+      }
     });
   }
 
   private async syncLogoutAcrossDomains(): Promise<void> {
     const targetDomains = Object.values(this.domains)
-      .filter(domain => domain !== window.location.hostname);
+      .filter(domain => domain !== window.location.hostname)
+      .filter(domain => domain !== this.domains.API);
 
-    const logoutPromises = targetDomains.map(domain => 
-      this.createLogoutFrame(domain)
-    );
+    const logoutPromises = targetDomains.map(domain => this.createLogoutBeacon(domain));
 
     await Promise.allSettled(logoutPromises);
   }
 
-  private createLogoutFrame(domain: string): Promise<void> {
+  private createLogoutBeacon(domain: string): Promise<void> {
     return new Promise((resolve) => {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = `https://${domain}/api/auth/logout`;
-
-      const cleanup = () => {
-        try {
-          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        } catch {}
+      try {
+        const img = new Image();
+        const url = `https://${domain}/api/auth/logout-all`;
+        const done = () => resolve();
+        img.onload = done;
+        img.onerror = done;
+        img.src = `${url}?t=${Date.now()}`;
+        setTimeout(done, 2000);
+      } catch {
         resolve();
-      };
-
-      document.body.appendChild(iframe);
-      setTimeout(cleanup, 2000);
+      }
     });
   }
 }

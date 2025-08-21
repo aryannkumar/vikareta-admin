@@ -5,7 +5,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
-    if (!token) return NextResponse.redirect('/login');
+  if (!token) return NextResponse.redirect('/auth/login');
 
     const SSO_SECRET = process.env.SSO_SECRET || process.env.JWT_SECRET || 'sso-secret';
 
@@ -13,13 +13,13 @@ export async function GET(req: Request) {
     try {
       payload = jwt.verify(token, SSO_SECRET) as any;
     } catch {
-      return NextResponse.redirect('/login');
+  return NextResponse.redirect('/auth/login');
     }
 
       // Optionally validate aud
       const expectedHost = process.env.NEXT_PUBLIC_ADMIN_HOST || 'admin.vikareta.com';
       if (payload.aud && !payload.aud.includes(expectedHost)) {
-        return NextResponse.redirect('/login');
+        return NextResponse.redirect('/auth/login');
       }
 
       // Validate token with backend before trusting it
@@ -33,11 +33,11 @@ export async function GET(req: Request) {
 
         const validateJson = await validateRes.json();
         if (!validateJson?.success) {
-          return NextResponse.redirect('/login');
+          return NextResponse.redirect('/auth/login');
         }
       } catch (err) {
         console.error('SSO validation call failed', err);
-        return NextResponse.redirect('/login');
+  return NextResponse.redirect('/auth/login');
       }
 
       const cookieValue = token;
@@ -55,6 +55,6 @@ export async function GET(req: Request) {
 
       return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html', 'Set-Cookie': cookie } });
   } catch {
-    return NextResponse.redirect('/login');
+  return NextResponse.redirect('/auth/login');
   }
 }
