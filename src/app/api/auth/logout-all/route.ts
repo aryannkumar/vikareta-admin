@@ -50,18 +50,24 @@ export async function GET(req: Request) {
         'Content-Type': 'text/html',
       } 
     });
-    
+
     // Clear all auth-related cookies on this domain
-    const cookieOptions = process.env.NODE_ENV === 'production' 
-      ? '; Domain=.vikareta.com; Secure; SameSite=None' 
-      : '';
-    
-    response.headers.set('Set-Cookie', [
-      `access_token=; Path=/; HttpOnly; Max-Age=0${cookieOptions}`,
-      `refresh_token=; Path=/; HttpOnly; Max-Age=0${cookieOptions}`,
-      `XSRF-TOKEN=; Path=/; Max-Age=0${cookieOptions}`,
-      `session_id=; Path=/; HttpOnly; Max-Age=0${cookieOptions}`,
-    ].join(', '));
+    const names = [
+      'access_token', 'refresh_token', 'session_id', 'XSRF-TOKEN',
+      'vikareta_access_token', 'vikareta_refresh_token', 'vikareta_session_id'
+    ];
+
+    names.forEach((name) => {
+      response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0`);
+      response.headers.append('Set-Cookie', `${name}=; Path=/; HttpOnly; Max-Age=0`);
+    });
+
+    if (process.env.NODE_ENV === 'production') {
+      names.forEach((name) => {
+        response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0; Domain=.vikareta.com; Secure; SameSite=None`);
+        response.headers.append('Set-Cookie', `${name}=; Path=/; HttpOnly; Max-Age=0; Domain=.vikareta.com; Secure; SameSite=None`);
+      });
+    }
 
     return response;
   } catch (error) {
@@ -100,18 +106,24 @@ export async function GET(req: Request) {
         'Content-Type': 'text/html',
       } 
     });
-    
+
     // Clear cookies even on error
-    const cookieOptions = process.env.NODE_ENV === 'production' 
-      ? '; Domain=.vikareta.com; Secure; SameSite=None' 
-      : '';
-    
-    response.headers.set('Set-Cookie', [
-      `access_token=; Path=/; HttpOnly; Max-Age=0${cookieOptions}`,
-      `refresh_token=; Path=/; HttpOnly; Max-Age=0${cookieOptions}`,
-      `XSRF-TOKEN=; Path=/; Max-Age=0${cookieOptions}`,
-      `session_id=; Path=/; HttpOnly; Max-Age=0${cookieOptions}`,
-    ].join(', '));
+    const names = [
+      'access_token', 'refresh_token', 'session_id', 'XSRF-TOKEN',
+      'vikareta_access_token', 'vikareta_refresh_token', 'vikareta_session_id'
+    ];
+
+    names.forEach((name) => {
+      response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0`);
+      response.headers.append('Set-Cookie', `${name}=; Path=/; HttpOnly; Max-Age=0`);
+    });
+
+    if (process.env.NODE_ENV === 'production') {
+      names.forEach((name) => {
+        response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0; Domain=.vikareta.com; Secure; SameSite=None`);
+        response.headers.append('Set-Cookie', `${name}=; Path=/; HttpOnly; Max-Age=0; Domain=.vikareta.com; Secure; SameSite=None`);
+      });
+    }
 
     return response;
   }
