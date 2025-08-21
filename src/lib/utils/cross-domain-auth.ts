@@ -215,7 +215,21 @@ export function handlePostLoginRedirect(): void {
 export async function syncSSOToSubdomains(targets?: string[]): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  const backend = process.env.NEXT_PUBLIC_API_BASE || (process.env.NODE_ENV === 'development' ? 'http://localhost:5001' : 'https://api.vikareta.com');
+  // Helper function to get CSRF token
+  const getCSRFToken = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    
+    const cookies = document.cookie.split(';');
+    const csrfCookie = cookies.find(cookie => 
+      cookie.trim().startsWith('XSRF-TOKEN=')
+    );
+    
+    if (csrfCookie) {
+      return decodeURIComponent(csrfCookie.split('=')[1]);
+    }
+    
+    return null;
+  };
 
   if (!targets || targets.length === 0) {
     const configured = process.env.NEXT_PUBLIC_SSO_TARGETS;
@@ -236,10 +250,15 @@ export async function syncSSOToSubdomains(targets?: string[]): Promise<void> {
   for (const host of targets) {
     const p = (async () => {
       try {
-        const resp = await fetch(`${backend}/api/auth/sso-token`, {
+        // Use same-origin proxy to obtain SSO token with current cookies
+        const resp = await fetch(`/api/auth/sso-token`, {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            // Add CSRF token if available
+            ...(getCSRFToken() && { 'X-XSRF-TOKEN': getCSRFToken()! })
+          },
           body: JSON.stringify({ target: host }),
         });
 
@@ -271,7 +290,7 @@ export async function syncSSOToSubdomains(targets?: string[]): Promise<void> {
           // Safety timeout
           setTimeout(() => cleanup(), 5000);
         });
-      } catch (err) {
+      } catch {
         // swallow errors; SSO sync should be best-effort
       }
     })();
