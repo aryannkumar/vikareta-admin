@@ -100,10 +100,10 @@ export const VIKARETA_AUTH_CONSTANTS = {
     SSO_TOKEN: 300 // 5 minutes
   },
   DOMAINS: {
-    MAIN: process.env.NEXT_PUBLIC_MAIN_HOST || 'vikareta.com',
-    DASHBOARD: process.env.NEXT_PUBLIC_DASHBOARD_HOST || 'dashboard.vikareta.com',
-    ADMIN: process.env.NEXT_PUBLIC_ADMIN_HOST || 'admin.vikareta.com',
-    API: process.env.NEXT_PUBLIC_API_HOST || 'api.vikareta.com'
+    MAIN: process.env.NEXT_PUBLIC_MAIN_DOMAIN || 'vikareta.com',
+    DASHBOARD: process.env.NEXT_PUBLIC_DASHBOARD_DOMAIN || 'dashboard.vikareta.com',
+    ADMIN: process.env.NEXT_PUBLIC_ADMIN_DOMAIN || 'admin.vikareta.com',
+    API: process.env.NEXT_PUBLIC_API_DOMAIN || 'api.vikareta.com'
   }
 } as const;
 
