@@ -77,8 +77,8 @@ export function AdminHeader() {
                     {user?.firstName} {user?.lastName}
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getRoleColor(user?.role || '')}`}>
-                      {user?.role?.replace('_', ' ').toUpperCase()}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getRoleColor(user?.userType || '')}`}>
+                      {user?.userType?.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                 </div>
