@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { vikaretaSSOClient } from '@/lib/auth/vikareta';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -76,9 +77,10 @@ export default function WalletsPage() {
   const fetchWallets = async (page = 1) => {
     try {
       setLoading(true);
+      const token = typeof window !== 'undefined' ? vikaretaSSOClient.getAccessToken() : null;
       const response = await fetch(`/api/admin/users?page=${page}&limit=20`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('vikareta_access_token')}`,
+          'Authorization': token ? `Bearer ${token}` : '',
         },
       });
       

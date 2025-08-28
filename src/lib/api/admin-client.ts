@@ -1,5 +1,6 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG, getApiUrl } from '@/config/api';
+import { vikaretaSSOClient } from '@/lib/auth/vikareta';
 
 const API_BASE_URL = getApiUrl();
 // Same-origin proxies for auth endpoints within the Next.js app
@@ -8,6 +9,7 @@ const AUTH_PROXY_BASE = '/api/auth';
 class AdminApiClient {
   private client: AxiosInstance;
   private csrfClient: AxiosInstance;
+  private csrfToken: string | null = null;
 
   constructor() {
   this.client = axios.create({
@@ -32,38 +34,34 @@ class AdminApiClient {
   private setupInterceptors() {
     // Request interceptor to add auth token and CSRF token
     this.client.interceptors.request.use(
-      async (config) => {
+      async (config: InternalAxiosRequestConfig) => {
         if (typeof window !== 'undefined') {
-          const token = localStorage.getItem('vikareta_access_token');
-          console.log('Admin API request interceptor - token found:', !!token);
+          // Use unified SSO client to obtain an access token (if available)
+          const token = vikaretaSSOClient.getAccessToken();
           if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-            console.log('Added Authorization header to request:', config.url);
-          } else {
-            console.warn('No admin_token found in localStorage for request:', config.url);
-            console.log('Falling back to cookie-based authentication');
-            // Don't add Authorization header - let cookies handle authentication
+            config.headers = config.headers || {};
+            // headers typings expect AxiosRequestHeaders-like shape
+            (config.headers as any).Authorization = `Bearer ${token}`;
           }
 
-          // Add CSRF token for non-GET requests
+          // Add CSRF token for non-GET requests if present (best-effort)
           if (config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
-            const csrfToken = localStorage.getItem('csrf_token');
+            const csrfToken = this.csrfToken;
             if (csrfToken) {
+              config.headers = config.headers || {};
               config.headers['X-CSRF-Token'] = csrfToken;
             }
           }
         }
         return config;
       },
-      (error) => {
-        return Promise.reject(error);
-      }
+      (error: any) => Promise.reject(error)
     );
 
     // Response interceptor to handle auth and CSRF errors
     this.client.interceptors.response.use(
-      (response) => response,
-      async (error) => {
+      (response: AxiosResponse) => response,
+      async (error: any) => {
         const originalRequest = error.config;
 
         // Handle 403 CSRF token errors
@@ -76,12 +74,11 @@ class AdminApiClient {
             originalRequest._csrfRetry = true;
 
             // Clear old token and get fresh one
-            localStorage.removeItem('csrf_token');
+            this.csrfToken = null;
             await this.ensureCSRFToken();
 
-            const csrfToken = localStorage.getItem('csrf_token');
-            if (csrfToken) {
-              originalRequest.headers['X-CSRF-Token'] = csrfToken;
+            if (this.csrfToken) {
+              originalRequest.headers['X-CSRF-Token'] = this.csrfToken;
             }
 
             return this.client(originalRequest);
@@ -91,34 +88,24 @@ class AdminApiClient {
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
 
-          if (typeof window !== 'undefined') {
-            const refreshToken = localStorage.getItem('admin_refresh_token');
-
-            if (refreshToken) {
-              try {
-                // Try to refresh the token
-                const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-                  refreshToken
-                }, { withCredentials: true });
-
-                const { accessToken } = refreshResponse.data.data.tokens;
-                localStorage.setItem('admin_token', accessToken);
-
-                // Retry the original request with new token
-                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          try {
+            // Attempt token refresh via unified SSO client
+            const refreshed = await vikaretaSSOClient.refreshToken();
+            if (refreshed) {
+              const newToken = vikaretaSSOClient.getAccessToken();
+              if (newToken) {
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return this.client(originalRequest);
-              } catch {
-                // Refresh failed, redirect to login
-                localStorage.removeItem('admin_token');
-                localStorage.removeItem('admin_refresh_token');
-                window.location.href = '/login';
               }
-            } else {
-              // No refresh token, redirect to login
-              localStorage.removeItem('admin_token');
-              window.location.href = '/login';
             }
+          } catch {
+            // fallthrough to logout
           }
+
+          // If refresh failed, ensure unified logout flow and redirect
+          try { await vikaretaSSOClient.logout(); } catch {}
+          if (typeof window !== 'undefined') window.location.href = '/login';
         }
         return Promise.reject(error);
       }
@@ -169,15 +156,15 @@ class AdminApiClient {
       },
     });
 
-    // Add tokens to auth requests
+    // Add tokens to auth requests using unified SSO client
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('vikareta_access_token');
+      const token = vikaretaSSOClient.getAccessToken();
       if (token) {
         authClient.defaults.headers.Authorization = `Bearer ${token}`;
       }
 
       if (method !== 'get') {
-        const csrfToken = localStorage.getItem('csrf_token');
+        const csrfToken = this.csrfToken;
         if (csrfToken) {
           authClient.defaults.headers['X-CSRF-Token'] = csrfToken;
           console.log('Adding CSRF token to auth request:', csrfToken.substring(0, 10) + '...');
@@ -218,7 +205,8 @@ class AdminApiClient {
             return; // Don't throw error, just continue without CSRF token
           }
 
-          localStorage.setItem('csrf_token', csrfToken);
+              // Keep CSRF token in-memory only (avoid localStorage)
+              this.csrfToken = csrfToken;
           console.log('CSRF token fetched and stored:', csrfToken.substring(0, 10) + '...');
         } catch (error) {
           console.error('Failed to get CSRF token:', error);
@@ -276,52 +264,19 @@ class AdminApiClient {
 
       console.log('Login response:', loginResponse.data);
 
-      // Store the CSRF token for future use
-      localStorage.setItem('csrf_token', csrfToken);
+  // Store the CSRF token in-memory for future use and initialize unified SSO client
+  this.csrfToken = csrfToken;
 
-      // Check if this is an admin user and if tokens are provided in response
-      if (loginResponse.data?.data?.token) {
-        // Admin user - tokens provided in response body
-        console.log('Admin login detected - storing tokens from response');
-        localStorage.setItem('admin_token', loginResponse.data.data.token);
-        localStorage.setItem('admin_refresh_token', loginResponse.data.data.refreshToken);
-
-        // Also set cookie for middleware compatibility
-        document.cookie = `admin_token=${loginResponse.data.data.token}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
-
-        return loginResponse;
-      } else if (loginResponse.data?.user?.userType === 'admin') {
-        // Admin user but no tokens in response - need to extract from cookies
-        console.log('Admin user detected but no tokens in response - checking cookies');
-
-        // Try to get tokens from cookies set by the server
-        const cookies = document.cookie.split(';');
-        let accessToken = null;
-
-        for (const cookie of cookies) {
-          const [name, value] = cookie.trim().split('=');
-          if (name === 'access_token') {
-            accessToken = value;
-            break;
-          }
-        }
-
-        if (accessToken) {
-          console.log('Found access token in cookies, storing in localStorage');
-          localStorage.setItem('admin_token', accessToken);
-
-          // Also set our own cookie for consistency
-          document.cookie = `admin_token=${accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
-        } else {
-          console.warn('Admin user logged in but no access token found in cookies');
-        }
-
-        return loginResponse;
+      try {
+        // Let the unified SSO client pick up cookies/state set by backend
+        await vikaretaSSOClient.initialize();
+      } catch (e) {
+        console.warn('SSO client initialization after login failed', e);
       }
 
       return loginResponse;
-    } catch (error) {
-      console.error('Login with CSRF failed:', error);
+    } catch (error: any) {
+      console.error('Login with CSRF failed:', error?.message || error);
       if (axios.isAxiosError(error)) {
         console.error('Axios error details:', {
           status: error.response?.status,

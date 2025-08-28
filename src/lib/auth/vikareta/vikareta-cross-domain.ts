@@ -15,6 +15,7 @@ import {
 export class VikaretaCrossDomainAuth {
   private readonly domains = VIKARETA_AUTH_CONSTANTS.DOMAINS;
   private readonly cookieNames = VIKARETA_AUTH_CONSTANTS.COOKIE_NAMES;
+  private authState: VikaretaAuthState | null = null;
 
   /**
    * Get current domain type with validation
@@ -38,49 +39,41 @@ export class VikaretaCrossDomainAuth {
   /**
    * Store authentication data securely across domains
    */
-  storeAuthData(authData: VikaretaAuthData): void {
+  async storeAuthData(authData: VikaretaAuthData): Promise<void> {
     if (!isVikaretaAuthData(authData)) {
       throw new Error('Invalid authentication data structure');
     }
 
     if (typeof window === 'undefined') return;
 
-    // Store in localStorage with encryption for client-side access
-    const storageData = {
+    // Keep auth state in-memory only (avoid persistent localStorage)
+    this.authState = {
       user: authData.user,
-      sessionId: authData.sessionId,
-      domain: authData.domain,
-      timestamp: Date.now()
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      sessionId: authData.sessionId || null
     };
 
+    // Important security note:
+    // Do NOT write access/refresh tokens into localStorage or client-side cookies here.
+    // Exchange the provided SSO tokens with the backend so the server can set HttpOnly cookies.
+    // This keeps tokens inaccessible to JS and aligns with the unified SSO flow.
+    // Exchange tokens with backend so server can set HttpOnly cookies
     try {
-      localStorage.setItem(
-        VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE, 
-        JSON.stringify(storageData)
-      );
-    } catch (error) {
-      console.error('Failed to store auth data:', error);
-    }
-
-    // Set secure HttpOnly-compatible cookies for cross-domain
-    this.setSecureCookie(
-      this.cookieNames.ACCESS_TOKEN, 
-      authData.tokens.accessToken,
-      VIKARETA_AUTH_CONSTANTS.TOKEN_EXPIRY.ACCESS_TOKEN
-    );
-
-    this.setSecureCookie(
-      this.cookieNames.REFRESH_TOKEN, 
-      authData.tokens.refreshToken,
-      VIKARETA_AUTH_CONSTANTS.TOKEN_EXPIRY.REFRESH_TOKEN
-    );
-
-    if (authData.sessionId) {
-      this.setSecureCookie(
-        this.cookieNames.SESSION_ID,
-        authData.sessionId,
-        VIKARETA_AUTH_CONSTANTS.TOKEN_EXPIRY.REFRESH_TOKEN
-      );
+      await fetch('/api/auth/exchange-sso', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: authData.tokens.accessToken,
+          refreshToken: authData.tokens.refreshToken,
+          sessionId: authData.sessionId || null,
+          domain: authData.domain || this.getCurrentDomain()
+        })
+      });
+    } catch (err) {
+      console.error('Failed to exchange SSO tokens with backend:', err);
     }
   }
 
@@ -93,35 +86,12 @@ export class VikaretaCrossDomainAuth {
     }
 
     try {
-      const stored = localStorage.getItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE);
-      if (!stored) {
-        return { user: null, isAuthenticated: false, isLoading: false, error: null, sessionId: null };
+      if (this.authState && this.authState.user) {
+        return this.authState;
       }
-
-      const data = JSON.parse(stored);
-      
-      // Validate stored data structure
-      if (!data.user || !data.user.id || !data.user.email) {
-        this.clearAuthData();
-        return { user: null, isAuthenticated: false, isLoading: false, error: 'Invalid stored auth data', sessionId: null };
-      }
-
-      // Check if data is stale (older than 24 hours)
-      const isStale = data.timestamp && (Date.now() - data.timestamp) > (24 * 60 * 60 * 1000);
-      if (isStale) {
-        this.clearAuthData();
-        return { user: null, isAuthenticated: false, isLoading: false, error: 'Auth data expired', sessionId: null };
-      }
-
-      return {
-        user: data.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-        sessionId: data.sessionId || null
-      };
+      return { user: null, isAuthenticated: false, isLoading: false, error: null, sessionId: null };
     } catch (error) {
-      console.error('Failed to parse stored auth data:', error);
+      console.error('Failed to get stored auth data:', error);
       this.clearAuthData();
       return { user: null, isAuthenticated: false, isLoading: false, error: 'Corrupted auth data', sessionId: null };
     }
@@ -133,10 +103,10 @@ export class VikaretaCrossDomainAuth {
   clearAuthData(): void {
     if (typeof window === 'undefined') return;
 
-    // Clear localStorage
-    localStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE);
-    localStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.USER_PREFERENCES);
-    localStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL);
+  // Clear in-memory state and sessionStorage
+  this.authState = null;
+  try { sessionStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.USER_PREFERENCES); } catch {}
+  try { sessionStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL); } catch {}
 
     // Clear cookies on all domains
     this.clearSecureCookie(this.cookieNames.ACCESS_TOKEN);
@@ -175,8 +145,8 @@ export class VikaretaCrossDomainAuth {
     const currentUrl = encodeURIComponent(window.location.href);
     const returnUrlParam = `?returnUrl=${currentUrl}`;
     
-    // Store return URL securely
-    localStorage.setItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL, currentUrl);
+  // Store return URL in sessionStorage (short-lived) to avoid persistent localStorage
+  try { sessionStorage.setItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL, currentUrl); } catch {}
 
   const loginUrl = `/login${returnUrlParam}`;
 
@@ -190,11 +160,10 @@ export class VikaretaCrossDomainAuth {
     if (typeof window === 'undefined') return;
 
     // Get return URL from parameters or localStorage
-    const returnUrl = searchParams?.get('returnUrl') || 
-                     localStorage.getItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL);
+  const returnUrl = searchParams?.get('returnUrl') || sessionStorage.getItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL);
 
-    // Clear stored return URL
-    localStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL);
+  // Clear stored return URL
+  try { sessionStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.RETURN_URL); } catch {}
 
     if (returnUrl) {
       try {

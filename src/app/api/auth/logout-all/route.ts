@@ -17,29 +17,25 @@ export async function GET(req: Request) {
       credentials: 'include',
     }).catch(() => {}); // Ignore errors
 
-    // Return HTML page that signals completion and clears cookies
+    // Return HTML page that signals completion and clears client-side auth data
     const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Logout Complete</title>
+  <title>Logout Complete</title>
+  <meta charset="utf-8" />
 </head>
 <body>
   <script>
-    // Clear any client-side auth data
     try {
-      ['vikareta_access_token', 'vikareta_refresh_token', 'vikareta_user', 
-       'dashboard_token', 'dashboard_refresh_token', 'admin_token', 'admin_refresh_token',
-       'auth_token', 'refresh_token'].forEach(key => {
-        localStorage.removeItem(key);
-      });
-    } catch {}
-    
-    // Signal completion to parent window
+      // Clear unified non-sensitive auth state keys
+      ['vikareta_auth_state', 'vikareta_user', 'vikareta_return_url', 'csrf_token'].forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'LOGOUT_COMPLETE', domain: location.hostname }, '*');
     }
-    
-    document.write('<div style="font-family: system-ui; padding: 20px; text-align: center;">Admin logout complete</div>');
+
+    document.write('<div style="font-family: system-ui; padding: 20px; text-align: center;">Logout complete</div>');
   </script>
 </body>
 </html>`;
@@ -52,11 +48,7 @@ export async function GET(req: Request) {
     });
 
     // Clear all auth-related cookies on this domain
-    const names = [
-      'access_token', 'refresh_token', 'session_id', 'XSRF-TOKEN',
-      'vikareta_access_token', 'vikareta_refresh_token', 'vikareta_session_id'
-    ];
-
+    const names = ['vikareta_access_token','vikareta_refresh_token','vikareta_session_id','XSRF-TOKEN'];
     names.forEach((name) => {
       response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0`);
       response.headers.append('Set-Cookie', `${name}=; Path=/; HttpOnly; Max-Age=0`);
@@ -81,21 +73,13 @@ export async function GET(req: Request) {
 </head>
 <body>
   <script>
-    // Clear any client-side auth data
     try {
-      ['vikareta_access_token', 'vikareta_refresh_token', 'vikareta_user', 
-       'dashboard_token', 'dashboard_refresh_token', 'admin_token', 'admin_refresh_token',
-       'auth_token', 'refresh_token'].forEach(key => {
-        localStorage.removeItem(key);
-      });
+      ['vikareta_auth_state', 'vikareta_user', 'csrf_token'].forEach(k => localStorage.removeItem(k));
     } catch {}
-    
-    // Signal completion to parent window
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'LOGOUT_COMPLETE', domain: location.hostname }, '*');
     }
-    
-    document.write('<div style="font-family: system-ui; padding: 20px; text-align: center;">Admin logout complete</div>');
+    document.write('<div style="font-family: system-ui; padding: 20px; text-align: center;">Logout complete</div>');
   </script>
 </body>
 </html>`;

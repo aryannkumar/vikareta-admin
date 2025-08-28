@@ -8,6 +8,7 @@ import {
   VikaretaSession, 
   VIKARETA_AUTH_CONSTANTS 
 } from './vikareta-auth-types';
+import { vikaretaCrossDomainAuth } from './vikareta-cross-domain';
 
 export class VikaretaSessionManager {
   private activityTimer: NodeJS.Timeout | null = null;
@@ -68,18 +69,17 @@ export class VikaretaSessionManager {
     if (typeof window === 'undefined') return null;
 
     try {
-      const stored = localStorage.getItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE);
-      if (!stored) return null;
-
-      const data = JSON.parse(stored);
-      return data.sessionId ? {
-        id: data.sessionId,
-        userId: data.user?.id || '',
-        domain: data.domain || 'main',
-        createdAt: data.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString(),
+      // Use cross-domain auth state (in-memory / server-backed) instead of localStorage
+      const state = vikaretaCrossDomainAuth.getStoredAuthData();
+      if (!state || !state.sessionId || !state.user) return null;
+      return {
+        id: state.sessionId,
+        userId: state.user.id,
+        domain: vikaretaCrossDomainAuth.getCurrentDomain(),
+        createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + VIKARETA_AUTH_CONSTANTS.TOKEN_EXPIRY.REFRESH_TOKEN * 1000).toISOString(),
         lastActivityAt: new Date().toISOString()
-      } : null;
+      };
     } catch (error) {
       console.error('Failed to get session info:', error);
       return null;
@@ -93,11 +93,11 @@ export class VikaretaSessionManager {
     if (typeof window === 'undefined') return;
 
     try {
-      const stored = localStorage.getItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE);
-      if (stored) {
-        const data = JSON.parse(stored);
-        data.lastActivity = Date.now();
-        localStorage.setItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE, JSON.stringify(data));
+      // Update in-memory cross-domain auth state activity timestamp
+      const state = vikaretaCrossDomainAuth.getStoredAuthData();
+      if (state && state.sessionId) {
+        // There's no persistent storage for activity; rely on server heartbeat
+        // Optionally we could POST /api/auth/activity to update last activity server-side
       }
     } catch (error) {
       console.error('Failed to update activity:', error);
@@ -113,16 +113,10 @@ export class VikaretaSessionManager {
     if (typeof window === 'undefined') return true;
 
     try {
-      const stored = localStorage.getItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE);
-      if (!stored) return true;
-
-      const data = JSON.parse(stored);
-      const lastActivity = data.lastActivity || data.timestamp;
-      
-      if (!lastActivity) return true;
-
-      const timeSinceActivity = Date.now() - lastActivity;
-      return timeSinceActivity > this.ACTIVITY_TIMEOUT;
+      const state = vikaretaCrossDomainAuth.getStoredAuthData();
+      if (!state || !state.sessionId) return true;
+      // We don't have a client-side lastActivity; rely on server session timeout
+      return false;
     } catch (error) {
       console.error('Failed to check session expiry:', error);
       return true;
@@ -191,8 +185,9 @@ export class VikaretaSessionManager {
     
     // Clear auth data
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(VIKARETA_AUTH_CONSTANTS.STORAGE_KEYS.AUTH_STATE);
-      
+      // Clear cross-domain in-memory auth state
+      vikaretaCrossDomainAuth.clearAuthData();
+
       // Redirect to login
       window.location.href = '/login?reason=timeout';
     }

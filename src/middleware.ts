@@ -10,9 +10,9 @@ export function middleware(request: NextRequest) {
   // Check if the current route is public
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   
-  // Get the token from cookies or headers
-  const token = request.cookies.get('admin_token')?.value || 
-                request.headers.get('authorization')?.replace('Bearer ', '');
+  // Use unified Vikareta SSO access token cookie or Authorization header
+  const token = request.cookies.get('vikareta_access_token')?.value || 
+                (request.headers.get('authorization')?.replace('Bearer ', '') || null);
   
   // If accessing a protected route without a token, redirect to login
   if (!isPublicRoute && !token) {
