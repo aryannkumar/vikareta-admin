@@ -18,9 +18,20 @@ export async function GET(req: Request) {
 
     try {
       console.log('SSO: Exchanging code with backend...', { backend });
+      
+      // Get CSRF token from cookies if available
+      const cookieHeader = req.headers.get('cookie') || '';
+      const csrfMatch = cookieHeader.match(/XSRF-TOKEN=([^;]+)/);
+      const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : null;
+      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (csrfToken) {
+        headers['X-XSRF-TOKEN'] = csrfToken;
+      }
+      
       const tokenRes = await fetch(`${backend}/api/auth/oauth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           grant_type: 'authorization_code',
           code,
