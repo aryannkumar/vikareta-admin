@@ -294,8 +294,9 @@ export class VikaretaCrossDomainAuth {
   private createSSOPopup(domain: string): Promise<void> {
     return new Promise((resolve) => {
       try {
-        const authBase = '/api/auth/oauth/authorize';
-        const clientId = (window as any)?.VIKARETA_CLIENT_ID || 'admin';
+  const API_BASE = (window as any)?.VIKARETA_API_BASE || (process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com/api').replace(/\/api\/api$/, '/api');
+  const authBase = `${API_BASE}/auth/oauth/authorize`;
+  const clientId = (window as any)?.VIKARETA_CLIENT_ID || 'admin';
         const redirectUri = `https://${domain}/sso/receive`;
         const state = Math.random().toString(36).substring(2, 15);
         const url = `${authBase}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
