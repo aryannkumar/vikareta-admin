@@ -6,8 +6,8 @@ import {
   ShoppingBagIcon, 
   CubeIcon, 
   BanknotesIcon,
-  TrendingUpIcon,
-  TrendingDownIcon
+  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingDownIcon as TrendingDownIcon
 } from '@heroicons/react/24/outline';
 
 interface DashboardData {
