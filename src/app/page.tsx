@@ -1,29 +1,77 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/providers/auth-provider';
+import LoginForm from '@/components/auth/LoginForm';
 
-export default function Home() {
+export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
+    // Check if admin is already authenticated
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      // Verify token with backend
+      fetch('/api/admin/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          setIsAuthenticated(true);
+          router.push('/dashboard');
+        } else {
+          localStorage.removeItem('adminToken');
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('adminToken');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+    } else {
+      setIsLoading(false);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [router]);
 
-  // Show loading while determining auth status
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    router.push('/dashboard');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return null; // Will redirect to dashboard
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="flex flex-col items-center justify-center">
-        <div className="animate-spin rounded-full w-8 h-8 border-3 border-orange-200 border-t-orange-500 mb-3" aria-label="Loading" role="status"></div>
-        <p className="text-gray-600">Loading...</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-600">
+            <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Vikareta Admin Panel
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Sign in to manage the platform
+          </p>
+        </div>
+        <LoginForm onSuccess={handleLoginSuccess} />
       </div>
     </div>
   );

@@ -1,35 +1,23 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { AdminProviders } from "@/components/providers/admin-providers";
-import { ErrorBoundary } from "@/components/ui/error-boundary";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Vikareta Admin Portal",
-  description: "Administrative dashboard for Vikareta marketplace platform",
-  icons: {
-    icon: "/favicon.ico",
-  },
+  title: 'Vikareta Admin Panel',
+  description: 'Comprehensive admin panel for managing the Vikareta platform',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-gray-50`}>
-        <ErrorBoundary>
-          <AdminProviders>
-            {children}
-          </AdminProviders>
-        </ErrorBoundary>
+    <html lang="en">
+      <body className={inter.className}>
+        {children}
       </body>
     </html>
   );
