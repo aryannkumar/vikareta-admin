@@ -469,19 +469,25 @@ class AdminApiClient {
     return this.put('/system/config', config);
   }
 
-  async getNotificationTemplates() {
-    return this.get('/notifications/templates');
+  async getNotificationTemplates(filters?: any) {
+    return this.get('/notification-templates', { params: filters });
+  }
+
+  async createNotificationTemplate(data: any) {
+    return this.post('/notification-templates', data);
   }
 
   async updateNotificationTemplate(id: string, template: any) {
-    return this.put(`/notifications/templates/${id}`, template);
+    return this.put(`/notification-templates/${id}`, template);
+  }
+
+  async deleteNotificationTemplate(id: string) {
+    return this.delete(`/notification-templates/${id}`);
   }
 
   async testNotificationTemplate(id: string, testData: any) {
-    return this.post(`/notifications/templates/${id}/test`, testData);
+    return this.post(`/notification-templates/${id}/test`, testData);
   }
-
-  // Dispute Management
   async getDisputes(params?: {
     page?: number;
     limit?: number;
@@ -559,6 +565,403 @@ class AdminApiClient {
 
   async getContentStats() {
     return this.get('/dashboard/content-stats');
+  }
+
+  // ===== ADS MANAGEMENT =====
+  async getAds(filters?: any) {
+    return this.get('/ads', { params: filters });
+  }
+
+  async createAd(data: any) {
+    return this.post('/ads', data);
+  }
+
+  async updateAd(adId: string, data: any) {
+    return this.put(`/ads/${adId}`, data);
+  }
+
+  async deleteAd(adId: string) {
+    return this.delete(`/ads/${adId}`);
+  }
+
+  async getAdsAnalytics(period?: string, limit?: number) {
+    return this.get('/ads/analytics', { params: { period, limit } });
+  }
+
+  // ===== ANALYTICS =====
+  async getAnalyticsRevenue(period?: string) {
+    return this.get(`/analytics/revenue`, { params: { period } });
+  }
+
+  async getAnalyticsProductsPerformance(limit?: number) {
+    return this.get(`/analytics/products/performance`, { params: { limit } });
+  }
+
+  async getAnalyticsProducts(query?: any) {
+    return this.get(`/analytics/products`, { params: query });
+  }
+
+  async getAnalyticsSales(query?: any) {
+    return this.get(`/analytics/sales`, { params: query });
+  }
+
+  async getAnalyticsOrders(query?: any) {
+    return this.get(`/analytics/orders`, { params: query });
+  }
+
+  async getAnalyticsRfqs(query?: any) {
+    return this.get(`/analytics/rfqs`, { params: query });
+  }
+
+  async getAnalyticsWallet(query?: any) {
+    return this.get(`/analytics/wallet`, { params: query });
+  }
+
+  async getAnalyticsUsers(query?: any) {
+    return this.get(`/analytics/users`, { params: query });
+  }
+
+  async getAnalyticsCustomers(query?: any) {
+    return this.get(`/analytics/customers`, { params: query });
+  }
+
+  // ===== ANNOUNCEMENTS =====
+  async getAnnouncements(filters?: any) {
+    return this.get('/announcements', { params: filters });
+  }
+
+  async createAnnouncement(data: any) {
+    return this.post('/announcements', data);
+  }
+
+  async updateAnnouncement(announcementId: string, data: any) {
+    return this.put(`/announcements/${announcementId}`, data);
+  }
+
+  async deleteAnnouncement(announcementId: string) {
+    return this.delete(`/announcements/${announcementId}`);
+  }
+
+  // ===== API KEYS =====
+  async getApiKeys() {
+    return this.get('/api-keys');
+  }
+
+  async createApiKey(data: any) {
+    return this.post('/api-keys', data);
+  }
+
+  async updateApiKey(keyId: string, data: any) {
+    return this.put(`/api-keys/${keyId}`, data);
+  }
+
+  async deleteApiKey(keyId: string) {
+    return this.delete(`/api-keys/${keyId}`);
+  }
+
+  // ===== COUPONS =====
+  async getCoupons(filters?: any) {
+    return this.get('/coupons', { params: filters });
+  }
+
+  async createCoupon(data: any) {
+    return this.post('/coupons', data);
+  }
+
+  async updateCoupon(couponId: string, data: any) {
+    return this.put(`/coupons/${couponId}`, data);
+  }
+
+  async deleteCoupon(couponId: string) {
+    return this.delete(`/coupons/${couponId}`);
+  }
+
+  async validateCoupon(code: string) {
+    return this.post('/coupons/validate', { code });
+  }
+
+  // ===== DEALS =====
+  async getDeals(filters?: any) {
+    return this.get('/deals', { params: filters });
+  }
+
+  async createDeal(data: any) {
+    return this.post('/deals', data);
+  }
+
+  async updateDeal(dealId: string, data: any) {
+    return this.put(`/deals/${dealId}`, data);
+  }
+
+  async deleteDeal(dealId: string) {
+    return this.delete(`/deals/${dealId}`);
+  }
+
+  // ===== DELIVERY PARTNERS =====
+  async getDeliveryPartners(filters?: any) {
+    return this.get('/delivery-partners', { params: filters });
+  }
+
+  async createDeliveryPartner(data: any) {
+    return this.post('/delivery-partners', data);
+  }
+
+  async updateDeliveryPartner(partnerId: string, data: any) {
+    return this.put(`/delivery-partners/${partnerId}`, data);
+  }
+
+  async deleteDeliveryPartner(partnerId: string) {
+    return this.delete(`/delivery-partners/${partnerId}`);
+  }
+
+  // ===== LOGISTICS PROVIDERS =====
+  async getLogisticsProviders(filters?: any) {
+    return this.get('/logistics-providers', { params: filters });
+  }
+
+  async createLogisticsProvider(data: any) {
+    return this.post('/logistics-providers', data);
+  }
+
+  async updateLogisticsProvider(providerId: string, data: any) {
+    return this.put(`/logistics-providers/${providerId}`, data);
+  }
+
+  async deleteLogisticsProvider(providerId: string) {
+    return this.delete(`/logistics-providers/${providerId}`);
+  }
+
+  // ===== NEGOTIATION BATCHES =====
+  async getNegotiationBatches(filters?: any) {
+    return this.get('/negotiation-batches', { params: filters });
+  }
+
+  async createNegotiationBatch(data: any) {
+    return this.post('/negotiation-batches', data);
+  }
+
+  async updateNegotiationBatch(batchId: string, data: any) {
+    return this.put(`/negotiation-batches/${batchId}`, data);
+  }
+
+  async deleteNegotiationBatch(batchId: string) {
+    return this.delete(`/negotiation-batches/${batchId}`);
+  }
+
+  // ===== NOTIFICATION BATCHES =====
+  async getNotificationBatches(filters?: any) {
+    return this.get('/notification-batches', { params: filters });
+  }
+
+  async createNotificationBatch(data: any) {
+    return this.post('/notification-batches', data);
+  }
+
+  async updateNotificationBatch(batchId: string, data: any) {
+    return this.put(`/notification-batches/${batchId}`, data);
+  }
+
+  async deleteNotificationBatch(batchId: string) {
+    return this.delete(`/notification-batches/${batchId}`);
+  }
+
+  // ===== QUOTES =====
+  async getQuotes(filters?: any) {
+    return this.get('/quotes', { params: filters });
+  }
+
+  async getQuote(quoteId: string) {
+    return this.get(`/quotes/${quoteId}`);
+  }
+
+  async createQuote(data: any) {
+    return this.post('/quotes', data);
+  }
+
+  async updateQuote(quoteId: string, data: any) {
+    return this.put(`/quotes/${quoteId}`, data);
+  }
+
+  async deleteQuote(quoteId: string) {
+    return this.delete(`/quotes/${quoteId}`);
+  }
+
+  async acceptQuote(quoteId: string) {
+    return this.post(`/quotes/${quoteId}/accept`);
+  }
+
+  async rejectQuote(quoteId: string, reason?: string) {
+    return this.post(`/quotes/${quoteId}/reject`, { reason });
+  }
+
+  // ===== REVIEWS =====
+  async getReviews(filters?: any) {
+    return this.get('/reviews', { params: filters });
+  }
+
+  async getReview(reviewId: string) {
+    return this.get(`/reviews/${reviewId}`);
+  }
+
+  async createReview(data: any) {
+    return this.post('/reviews', data);
+  }
+
+  async updateReview(reviewId: string, data: any) {
+    return this.put(`/reviews/${reviewId}`, data);
+  }
+
+  async deleteReview(reviewId: string) {
+    return this.delete(`/reviews/${reviewId}`);
+  }
+
+  async getProductReviews(productId: string, page?: number, limit?: number) {
+    return this.get(`/products/${productId}/reviews`, { params: { page, limit } });
+  }
+
+  async getServiceReviews(serviceId: string, page?: number, limit?: number) {
+    return this.get(`/services/${serviceId}/reviews`, { params: { page, limit } });
+  }
+
+  // ===== SECURITY SETTINGS =====
+  async getSecuritySettingsConfig() {
+    return this.get('/security-settings');
+  }
+
+  async updateSecuritySettingsConfig(settings: any) {
+    return this.put('/security-settings', settings);
+  }
+
+  // ===== SERVICE APPOINTMENTS =====
+  async getServiceAppointments(filters?: any) {
+    return this.get('/service-appointments', { params: filters });
+  }
+
+  async getServiceAppointment(appointmentId: string) {
+    return this.get(`/service-appointments/${appointmentId}`);
+  }
+
+  async createServiceAppointment(data: any) {
+    return this.post('/service-appointments', data);
+  }
+
+  async updateServiceAppointment(appointmentId: string, data: any) {
+    return this.put(`/service-appointments/${appointmentId}`, data);
+  }
+
+  async deleteServiceAppointment(appointmentId: string) {
+    return this.delete(`/service-appointments/${appointmentId}`);
+  }
+
+  async confirmServiceAppointment(appointmentId: string) {
+    return this.post(`/service-appointments/${appointmentId}/confirm`);
+  }
+
+  async cancelServiceAppointment(appointmentId: string, reason?: string) {
+    return this.post(`/service-appointments/${appointmentId}/cancel`, { reason });
+  }
+
+  // ===== SHIPPING =====
+  async getShippingRates(data: any) {
+    return this.post('/shipping/rates', data);
+  }
+
+  async createShipment(data: any) {
+    return this.post('/shipping/shipments', data);
+  }
+
+  async getShipment(shipmentId: string) {
+    return this.get(`/shipping/shipments/${shipmentId}`);
+  }
+
+  async updateShipment(shipmentId: string, data: any) {
+    return this.put(`/shipping/shipments/${shipmentId}`, data);
+  }
+
+  async getShippingProviders() {
+    return this.get('/shipping/providers');
+  }
+
+  async trackShipment(trackingNumber: string) {
+    return this.get(`/shipping/track/${trackingNumber}`);
+  }
+
+  // ===== SUPPORT =====
+  async getSupportTickets(filters?: any) {
+    return this.get('/support/tickets', { params: filters });
+  }
+
+  async getSupportTicket(ticketId: string) {
+    return this.get(`/support/tickets/${ticketId}`);
+  }
+
+  async createSupportTicket(data: any) {
+    return this.post('/support/tickets', data);
+  }
+
+  async updateSupportTicket(ticketId: string, data: any) {
+    return this.put(`/support/tickets/${ticketId}`, data);
+  }
+
+  async closeSupportTicket(ticketId: string) {
+    return this.post(`/support/tickets/${ticketId}/close`);
+  }
+
+  async addSupportTicketMessage(ticketId: string, message: string, attachments?: File[]) {
+    const formData = new FormData();
+    formData.append('message', message);
+    if (attachments) {
+      attachments.forEach(file => formData.append('attachments', file));
+    }
+    return this.post(`/support/tickets/${ticketId}/messages`, formData);
+  }
+
+  // ===== UPLOAD =====
+  async uploadFile(file: File, category?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (category) formData.append('category', category);
+    return this.post('/upload', formData);
+  }
+
+  async uploadMultipleFiles(files: File[], category?: string) {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    if (category) formData.append('category', category);
+    return this.post('/upload/multiple', formData);
+  }
+
+  async deleteUploadedFile(fileId: string) {
+    return this.delete(`/upload/${fileId}`);
+  }
+
+  async getUploadedFiles(filters?: any) {
+    return this.get('/upload', { params: filters });
+  }
+
+  // ===== WALLET =====
+  async getWalletBalance() {
+    return this.get('/wallet/balance');
+  }
+
+  async getWalletTransactions(filters?: any) {
+    return this.get('/wallet/transactions', { params: filters });
+  }
+
+  async addWalletFunds(amount: number, paymentMethod: string) {
+    return this.post('/wallet/add-funds', { amount, paymentMethod });
+  }
+
+  async withdrawWalletFunds(amount: number, accountDetails: any) {
+    return this.post('/wallet/withdraw', { amount, accountDetails });
+  }
+
+  async getWalletSettings() {
+    return this.get('/wallet/settings');
+  }
+
+  async updateWalletSettings(settings: any) {
+    return this.put('/wallet/settings', settings);
   }
 }
 
