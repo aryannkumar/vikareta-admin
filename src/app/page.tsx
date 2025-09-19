@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoginForm from '@/components/auth/LoginForm';
+import { adminApiClient } from '../lib/api/admin-client';
 
 export default function HomePage() {
   const router = useRouter();
@@ -13,22 +14,18 @@ export default function HomePage() {
     // Check if admin is already authenticated
     const token = localStorage.getItem('adminToken');
     if (token) {
-      // Verify token with backend
-      fetch('/api/admin/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => {
-        if (response.ok) {
-          setIsAuthenticated(true);
-          router.push('/dashboard');
-        } else {
+      // Verify token with backend using adminApiClient
+      adminApiClient.get('/profile')
+        .then(response => {
+          if (response.data) {
+            setIsAuthenticated(true);
+            router.push('/dashboard');
+          } else {
+            localStorage.removeItem('adminToken');
+          }
+        })
+        .catch(() => {
           localStorage.removeItem('adminToken');
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem('adminToken');
       })
       .finally(() => {
         setIsLoading(false);

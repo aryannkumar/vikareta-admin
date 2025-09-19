@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { adminApiClient } from '../../lib/api/admin-client';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -20,22 +21,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      // Use adminApiClient instead of direct fetch
+      const response = await adminApiClient.loginWithCSRF(formData.email, formData.password);
 
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.setItem('adminToken', data.data.token);
-        localStorage.setItem('adminUser', JSON.stringify(data.data.admin));
+      if (response.data.success) {
+        localStorage.setItem('adminToken', response.data.data.token);
+        localStorage.setItem('adminUser', JSON.stringify(response.data.data.admin));
         onSuccess();
       } else {
-        setError(data.error?.message || 'Login failed');
+        setError(response.data.error?.message || 'Login failed');
       }
     } catch (error) {
       setError('Network error. Please try again.');

@@ -2,7 +2,7 @@
 export const API_CONFIG = {
     // Primary API URL - use production API
     baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com',
-    apiUrl: (process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com') + '/api',
+    apiUrl: (process.env.NEXT_PUBLIC_API_URL || 'https://api.vikareta.com') + '/api/v1',
     
     // Admin-specific endpoints
     adminEndpoint: '/admin',

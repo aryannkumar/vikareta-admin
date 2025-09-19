@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Search, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { adminApiClient } from '@/lib/api/admin-client';
 
 // Simple component replacements
 const Table = ({ children }: { children: React.ReactNode }) => (
@@ -74,33 +69,16 @@ export default function SettlementsPage() {
   const fetchSettlements = async (page = 1) => {
     try {
       setLoading(true);
-      // Since we don't have a settlements endpoint, we'll use orders data to simulate settlements
-      const response = await fetch(`/api/admin/orders?page=${page}&limit=20`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+      // Use adminApiClient instead of direct fetch
+      const response = await adminApiClient.getSettlementReports({
+        dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        dateTo: new Date().toISOString().split('T')[0]
       });
       
-      if (response.ok) {
-        const result = await response.json();
-        // Transform orders to settlements
-        const mockSettlements = result.data.data
-          .filter((order: any) => order.status === 'delivered')
-          .map((order: any) => ({
-            id: `settlement_${order.id}`,
-            sellerId: order.seller.id,
-            sellerName: `${order.seller.firstName} ${order.seller.lastName}`,
-            sellerEmail: order.seller.email,
-            amount: order.totalAmount,
-            status: Math.random() > 0.7 ? 'completed' : Math.random() > 0.5 ? 'pending' : 'processing',
-            settlementDate: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-            orderId: order.id,
-            paymentMethod: 'Bank Transfer',
-            transactionFee: order.totalAmount * 0.02, // 2% fee
-            netAmount: order.totalAmount * 0.98,
-            createdAt: order.createdAt,
-            updatedAt: order.updatedAt,
-          }));
+      if (response.data?.success) {
+        const result = response.data;
+        // Transform settlement reports to settlements format
+        const mockSettlements = result.data || [];
         
         setSettlements(mockSettlements);
         setCurrentPage(result.data.pagination.page);

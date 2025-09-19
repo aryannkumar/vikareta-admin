@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     );
 
     // Call backend logout to clear HttpOnly cookies on this domain
-    await fetch(`${apiBase}/api/auth/logout`, {
+    await fetch(`${apiBase}/api/v1/auth/logout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

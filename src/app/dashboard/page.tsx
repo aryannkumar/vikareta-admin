@@ -9,6 +9,7 @@ import {
   ArrowTrendingUpIcon as TrendingUpIcon,
   ArrowTrendingDownIcon as TrendingDownIcon
 } from '@heroicons/react/24/outline';
+import { adminApiClient } from '@/lib/api/admin-client';
 
 interface DashboardData {
   overview: {
@@ -34,18 +35,12 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch('/api/admin/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setDashboardData(data.data);
+      const response = await adminApiClient.getDashboardStats();
+      
+      if (response.status === 200) {
+        setDashboardData(response.data);
       } else {
-        setError(data.error?.message || 'Failed to load dashboard data');
+        setError('Failed to load dashboard data');
       }
     } catch (error) {
       setError('Network error. Please try again.');

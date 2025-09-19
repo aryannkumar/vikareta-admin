@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { vikaretaSSOClient } from '@/lib/auth/vikareta';
+import { adminApiClient } from '@/lib/api/admin-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -77,15 +78,10 @@ export default function WalletsPage() {
   const fetchWallets = async (page = 1) => {
     try {
       setLoading(true);
-      const token = typeof window !== 'undefined' ? vikaretaSSOClient.getAccessToken() : null;
-      const response = await fetch(`/api/admin/users?page=${page}&limit=20`, {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-      });
+      const response = await adminApiClient.getUsers({ page, limit: 20 });
       
-      if (response.ok) {
-        const result = await response.json();
+      if (response.status === 200) {
+        const result = response.data;
         // Transform user data to include wallet info (mock for now since we don't have wallet endpoint)
         const usersWithWallets = result.data.data.map((user: any) => ({
           id: `wallet_${user.id}`,
