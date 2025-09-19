@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { adminApiClient } from '@/lib/api/admin-client';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { DollarSign, Search, Clock, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Simple component replacements
 const Table = ({ children }: { children: React.ReactNode }) => (
