@@ -7,11 +7,17 @@ export function middleware(request: NextRequest) {
   // Public routes that don't require authentication
   const publicRoutes = ['/login'];
   
+  // Guest-allowed routes (limited access for guest users)
+  const guestRoutes = ['/dashboard/guest', '/profile/guest'];
+  
   // Check if the current route is public
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   
+  // Check if the current route allows guest access
+  const isGuestRoute = guestRoutes.some(route => pathname.startsWith(route));
+  
   // Use unified Vikareta SSO access token cookie or Authorization header
-  const token = request.cookies.get('vikareta_access_token')?.value || 
+  const token = request.cookies.get('accessToken')?.value || 
                 (request.headers.get('authorization')?.replace('Bearer ', '') || null);
   
   // If accessing a protected route without a token, redirect to login

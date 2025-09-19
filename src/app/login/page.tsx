@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, createGuestSession } = useAuth();
   const router = useRouter();
   
   const toast = useSafeToast();
@@ -27,10 +27,24 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-  try { vikaretaCrossDomainAuth.syncSSOAcrossDomains(); } catch {}
-  try { vikaretaCrossDomainAuth.handlePostLoginRedirect(); } catch { router.push('/'); }
+      try { vikaretaCrossDomainAuth.syncSSOAcrossDomains(); } catch {}
+      try { vikaretaCrossDomainAuth.handlePostLoginRedirect(); } catch { router.push('/'); }
     } catch (err: any) {
       toast.error('Login Failed', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setIsLoading(true);
+
+    try {
+      await createGuestSession();
+      try { vikaretaCrossDomainAuth.syncSSOAcrossDomains(); } catch {}
+      try { vikaretaCrossDomainAuth.handlePostLoginRedirect(); } catch { router.push('/'); }
+    } catch (err: any) {
+      toast.error('Guest Session Failed', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -110,6 +124,32 @@ export default function LoginPage() {
                 'Sign in'
               )}
             </button>
+          </div>
+
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-gray-50 text-gray-500">Or</span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleGuestLogin}
+                disabled={isLoading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-700"></div>
+                ) : (
+                  'Continue as Guest'
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="text-center">

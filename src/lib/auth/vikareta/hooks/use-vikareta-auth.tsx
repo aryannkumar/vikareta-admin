@@ -26,11 +26,13 @@ export interface UseVikaretaAuthReturn {
   login: (credentials: { email: string; password: string }) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  createGuestSession: () => Promise<boolean>;
   clearError: () => void;
   
   // Utilities
   hasRole: (role: string | string[]) => boolean;
   canAccess: (domain: 'main' | 'dashboard' | 'admin') => boolean;
+  isGuest: boolean;
 }
 
 /**
@@ -151,10 +153,25 @@ export function useVikaretaAuth(): UseVikaretaAuthReturn {
   }, []);
 
   /**
-   * Clear authentication error
+   * Create guest session
    */
-  const clearError = useCallback(() => {
-    setAuthState(prev => ({ ...prev, error: null }));
+  const createGuestSession = useCallback(async (): Promise<boolean> => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      const result = await vikaretaSSOClient.createGuestSession();
+      setAuthState(result);
+      
+      return result.isAuthenticated;
+    } catch (error) {
+      console.error('Create guest session failed:', error);
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to create guest session'
+      }));
+      return false;
+    }
   }, []);
 
   /**
@@ -227,6 +244,20 @@ export function useVikaretaAuth(): UseVikaretaAuthReturn {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [initializeAuth]);
 
+  /**
+   * Clear authentication error
+   */
+  const clearError = useCallback(() => {
+    setAuthState(prev => ({ ...prev, error: null }));
+  }, []);
+
+  /**
+   * Check if current user is a guest
+   */
+  const isGuest = useCallback((): boolean => {
+    return authState.user?.userType === 'guest' || authState.user?.isGuest === true;
+  }, [authState.user]);
+
   return {
     // State
     user: authState.user,
@@ -238,11 +269,13 @@ export function useVikaretaAuth(): UseVikaretaAuthReturn {
     login,
     logout,
     refreshToken,
+    createGuestSession,
     clearError,
     
     // Utilities
     hasRole,
-    canAccess
+    canAccess,
+    isGuest: isGuest()
   };
 }
 

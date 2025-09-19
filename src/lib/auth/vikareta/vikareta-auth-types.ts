@@ -10,12 +10,13 @@ export interface VikaretaUser {
   firstName?: string;
   lastName?: string;
   businessName?: string;
-  userType?: 'buyer' | 'seller' | 'both' | 'admin' | 'super_admin';
-  verificationTier?: 'unverified' | 'basic' | 'verified' | 'premium';
+  userType?: 'buyer' | 'seller' | 'both' | 'admin' | 'super_admin' | 'guest';
+  verificationTier?: 'unverified' | 'basic' | 'verified' | 'premium' | 'guest';
   isVerified?: boolean;
   phone?: string;
   gstin?: string;
   createdAt: string;
+  isGuest?: boolean;
 }
 
 export interface VikaretaAuthTokens {
@@ -84,8 +85,8 @@ export interface VikaretaAuthError {
 // Security Constants
 export const VIKARETA_AUTH_CONSTANTS = {
   COOKIE_NAMES: {
-    ACCESS_TOKEN: 'vikareta_access_token',
-    REFRESH_TOKEN: 'vikareta_refresh_token',
+    ACCESS_TOKEN: 'accessToken',
+    REFRESH_TOKEN: 'refreshToken',
     SESSION_ID: 'vikareta_session_id',
     CSRF_TOKEN: 'XSRF-TOKEN'
   },
