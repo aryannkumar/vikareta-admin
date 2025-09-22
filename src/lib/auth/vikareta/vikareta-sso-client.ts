@@ -161,59 +161,6 @@ export class VikaretaSSOClient {
   }
 
   /**
-   * Create guest session
-   */
-  async createGuestSession(): Promise<VikaretaAuthState> {
-    try {
-      const response = await fetch('/api/auth/guest-session', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.getCSRFToken() && { 'X-XSRF-TOKEN': this.getCSRFToken()! })
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: data.message || 'Failed to create guest session',
-          sessionId: null
-        };
-      }
-
-      // Validate response data
-      if (!isVikaretaAuthData(data)) {
-        throw new Error('Invalid guest session response');
-      }
-
-      // Store auth data securely
-      await vikaretaCrossDomainAuth.storeAuthData(data);
-
-      return {
-        user: data.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-        sessionId: data.sessionId || null
-      };
-    } catch (error) {
-      console.error('Create guest session failed:', error);
-      return {
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to create guest session',
-        sessionId: null
-      };
-    }
-  }
-
-  /**
    * Validate current session
    */
   private async validateSession(): Promise<boolean> {

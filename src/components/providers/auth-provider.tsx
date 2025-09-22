@@ -30,9 +30,7 @@ interface AdminAuthContextType {
   isLoading: boolean;
   login: (credentials: { email: string; password: string }) => Promise<boolean>;
   logout: () => Promise<void>;
-  createGuestSession: () => Promise<boolean>;
   hasPermission: (permission: string) => boolean;
-  isGuest: boolean;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -42,13 +40,12 @@ function convertUser(vikaretaUser: VikaretaUser | null): AdminUser | null {
   if (!vikaretaUser) return null;
   
   // Map userType to admin role
-  const mapUserTypeToRole = (userType?: string): 'super_admin' | 'admin' | 'moderator' | 'support' | 'guest' => {
+  const mapUserTypeToRole = (userType?: string): 'super_admin' | 'admin' | 'moderator' | 'support' => {
     switch (userType) {
       case 'super_admin': return 'super_admin';
       case 'admin': return 'admin';
       case 'moderator': return 'moderator';
       case 'support': return 'support';
-      case 'guest': return 'guest';
       default: return 'admin';
     }
   };
@@ -60,12 +57,11 @@ function convertUser(vikaretaUser: VikaretaUser | null): AdminUser | null {
     lastName: vikaretaUser.lastName || '',
     role: mapUserTypeToRole(vikaretaUser.userType),
     permissions: [], // Default empty permissions
-    isActive: vikaretaUser.userType !== 'guest', // Guest users are not "active" in admin sense
+    isActive: true, // All authenticated users are active
     lastLogin: vikaretaUser.createdAt,
     phone: vikaretaUser.phone,
     businessName: vikaretaUser.businessName,
     userType: vikaretaUser.userType,
-    isGuest: vikaretaUser.isGuest || vikaretaUser.userType === 'guest',
   };
 }
 
@@ -96,23 +92,16 @@ function AdminAuthBridge({ children }: { children: React.ReactNode }) {
     await vikaretaAuth.logout();
   };
   
-  // Bridge the createGuestSession function
-  const createGuestSession = async () => {
-    return await vikaretaAuth.createGuestSession();
-  };
-  
   const authContextValue: AdminAuthContextType = {
     user: mappedUser,
     isAuthenticated: vikaretaAuth.isAuthenticated,
     isLoading: vikaretaAuth.isLoading,
     login,
     logout,
-    createGuestSession,
     hasPermission: (_permission: string) => {
       // Admin users typically have all permissions or check against role/permissions
       return true; // Implement actual permission checking as needed
-    },
-    isGuest: vikaretaAuth.isGuest
+    }
   };
 
   return (
