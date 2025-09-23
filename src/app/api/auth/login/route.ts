@@ -33,7 +33,16 @@ export async function POST(req: Request) {
     } catch {}
   }
 
-  const backendCookie = csrfToken ? `${cookieHeader || ''}${cookieHeader ? '; ' : ''}XSRF-TOKEN=${csrfToken}` : cookieHeader;
+  // Remove any existing XSRF-TOKEN before appending fresh one
+  let sanitizedCookie = cookieHeader || '';
+  if (sanitizedCookie) {
+    sanitizedCookie = sanitizedCookie
+      .split(';')
+      .map(p => p.trim())
+      .filter(p => !/^XSRF-TOKEN=/.test(p))
+      .join('; ');
+  }
+  const backendCookie = csrfToken ? `${sanitizedCookie}${sanitizedCookie ? '; ' : ''}XSRF-TOKEN=${csrfToken}` : sanitizedCookie;
 
   const resp = await fetch(`${apiBase}/api/v1/auth/login`, {
     method: 'POST',
